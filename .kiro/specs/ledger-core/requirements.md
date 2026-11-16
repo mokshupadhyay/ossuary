@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`ledger-core` is the foundational accounting layer for Ossuary. It provides a double-entry ledger in TypeScript backed by Drizzle ORM on Postgres, exposing three primary operations: `postTransaction`, `balance`, and `refund`. Every amount is stored as a `bigint` in minor units; balances are derived from summed entries rather than stored as mutable columns; and every money-moving operation is idempotent via an `Idempotency-Key`. The implementation must pass five structural correctness properties verifiable with fast-check and pglite (in-memory Postgres) so the test suite runs in CI without an external database.
+`ledger-core` is the foundational accounting layer for Ossuary. It provides a double-entry ledger in TypeScript backed by Drizzle ORM on Postgres, exposing three primary operations: `postTransaction`, `balance`, and `refund`. Every amount is stored as a `bigint` in minor units; balances are derived from summed entries rather than stored as mutable columns; and every money-moving operation is idempotent via an `Idempotency-Key`. The `transactions` table carries a `kind` column (enum of `capture`, `refund`, `transfer`) and a nullable `payment_id` UUID to classify and link related transactions. Webhook handling is out of scope for this spec and is covered by the `webhooks-outbox` spec. The implementation must pass five structural correctness properties verifiable with fast-check and pglite (in-memory Postgres) so the test suite runs in CI without an external database.
 
 ## Glossary
 
@@ -17,10 +17,12 @@
 - **balance**: The function that computes a live account balance as `SELECT sum(amount) FROM entries WHERE account_id = $1`.
 - **Payment**: A transaction (or group of transactions) that represents a captured monetary collection. Identified by a `payment_id`.
 - **refund**: The function that creates a reversing transaction against a payment, subject to a cap equal to the total captured amount.
-- **Poltergeist**: A test harness that injects faults (duplicate webhooks, out-of-order delivery, mid-operation crashes) to verify correctness properties.
+- **Poltergeist**: A test harness that injects faults (mid-operation crashes, duplicate requests) to verify correctness properties.
 - **pglite**: An in-memory Postgres-compatible engine used in CI so no external database is required.
 - **Minor_Units**: Integer representation of a monetary amount (e.g., cents for USD; six-decimal base units for USDC).
 - **Drift**: The difference between the expected and actual ledger sum. Must always be zero.
+- **Transaction_Kind**: An enum attached to each transaction (`capture`, `refund`, `transfer`) that classifies the economic purpose of the transaction.
+- **Normal_Balance**: The side of zero that a correctly-operating account stays on. Asset and expense accounts are debit-normal (balance ≥ 0); liability and revenue accounts are credit-normal (balance ≤ 0).
 
 ---
 
@@ -32,7 +34,7 @@
 
 #### Acceptance Criteria
 
-1. THE Ledger SHALL represent every account as a record containing a UUID `account_id`, a name of 1–255 characters, an account type (one of `asset`, `liability`, `revenue`, or `expense`), and a boolean `allow_negative` flag that defaults to `false` when omitted.
+1. THE Ledger SHALL represent every account as a record containing a UUID `account_id`, a name of 1–255 characters, an account type (one of `asset`, `liability`, `revenue`, or `expense`), and a boolean `allow_overdraft` flag that defaults to `false` when omitted.
 2. WHEN an account is created, THE Ledger SHALL persist it and return the full account record.
 3. IF an account creation request omits `account_id`, name, or type, THEN THE Ledger SHALL reject the request with an error message indicating which field is missing, without writing anything to the database.
 4. IF an account creation request supplies a type value other than `asset`, `liability`, `revenue`, or `expense`, THEN THE Ledger SHALL reject the request with an error message indicating the invalid type value, without writing anything to the database.
@@ -66,7 +68,7 @@
 2. IF `postTransaction` is called with an `Idempotency_Key` that matches an existing `Idempotency_Record` whose status is `completed` and whose `Request_Hash` matches the incoming payload hash, THEN THE Ledger SHALL return the stored response and SHALL NOT write any new entries, provided the `Idempotency_Record` was created no more than 24 hours prior; IF the record is older than 24 hours, THEN THE Ledger SHALL return an error indicating the idempotency window has expired.
 3. IF `postTransaction` is called with an `Idempotency_Key` that matches an existing `Idempotency_Record` and the incoming `Request_Hash` differs from the stored `Request_Hash`, THEN THE Ledger SHALL return a `409 Conflict` error and SHALL NOT write any new entries.
 4. THE Ledger SHALL enforce a unique database constraint on `Idempotency_Key` so that concurrent duplicate requests cannot both succeed.
-5. IF the `Idempotency_Record` status is `in_progress` and the elapsed time since the record's creation timestamp exceeds 30 seconds, THEN THE Ledger SHALL mark the record status as `expired` and SHALL allow a subsequent `postTransaction` call with the same `Idempotency_Key` to insert a new `Idempotency_Record` with status `in_progress` as though no prior record existed.
+5. WHEN a concurrent `postTransaction` call arrives with an `Idempotency_Key` that is already being claimed inside an open database transaction, THE Ledger SHALL serialize the duplicate by blocking on the unique constraint until the first transaction commits or rolls back, and SHALL then return the stored response if the first transaction committed, or proceed with its own attempt if the first transaction rolled back.
 6. IF a database error occurs after the key is claimed but before the response is stored, THEN THE Ledger SHALL roll back the entire transaction so that the key is not claimed and no entries are written.
 7. IF `postTransaction` is called without an `Idempotency_Key` header or field, THEN THE Ledger SHALL reject the request with an error indicating the idempotency key is required and SHALL NOT write any entries.
 8. **Property (fast-check):** FOR ALL valid `postTransaction` calls replayed with the same `Idempotency_Key` any number of times within the 24-hour retention window, the set of ledger entries SHALL be identical to the set produced by a single execution.
@@ -92,8 +94,8 @@
 
 #### Acceptance Criteria
 
-1. WHEN `refund` is called, THE Ledger SHALL compute the total captured amount for the given `payment_id` by summing all ledger entries of type `CAPTURE` associated with that `payment_id`.
-2. WHEN `refund` is called, THE Ledger SHALL compute the total already-refunded amount for the given `payment_id` by summing all successfully posted refund entries associated with that `payment_id`.
+1. WHEN `refund` is called, THE Ledger SHALL compute the total captured amount for the given `payment_id` by summing the `entries.amount` values across all transactions of `kind = 'capture'` linked to that `payment_id`.
+2. WHEN `refund` is called, THE Ledger SHALL compute the total already-refunded amount for the given `payment_id` by summing the `entries.amount` values across all successfully posted transactions of `kind = 'refund'` linked to that `payment_id`.
 3. IF the requested refund `amount` is less than or equal to zero, or if the requested `amount` would cause the total refunded amount to exceed the total captured amount, THEN THE Ledger SHALL reject the refund with an error indicating the specific reason (invalid amount or cap exceeded), without writing any ledger entries.
 4. IF `refund` is called with a `payment_id` that does not correspond to any existing captured transaction in the ledger, THEN THE Ledger SHALL reject the refund with an error indicating the payment was not found, without writing any ledger entries.
 5. WHEN a valid refund is accepted, THE Ledger SHALL post it as a new reversing transaction using `postTransaction`, inheriting full idempotency and atomicity guarantees.
@@ -102,32 +104,21 @@
 
 ---
 
-### Requirement 6: No Negative Balance for Restricted Accounts
+### Requirement 6: Normal-Balance Enforcement
 
-**User Story:** As a developer, I want accounts without `allow_negative` to be protected from going below zero, so that the ledger enforces economic constraints at the data layer.
-
-#### Acceptance Criteria
-
-1. IF a submitted transaction would cause the post-transaction balance of any account with `allow_negative = false` to be less than `0n`, THEN THE Ledger SHALL reject the entire transaction, persist no entries, and return an error indicating which account would have gone negative.
-2. IF a submitted transaction would cause the post-transaction balance of any account with `allow_negative = false` to be less than `0n`, THEN THE Ledger SHALL evaluate the balance check and the entry write as a single atomic operation, such that no entries are written if the check fails.
-3. WHERE an account has `allow_negative = true`, THE Ledger SHALL apply the transaction's entries to that account regardless of whether its post-transaction balance is less than `0n`.
-
----
-
-### Requirement 7: Webhook Idempotency and Ordering
-
-**User Story:** As a developer, I want duplicate or out-of-order webhook deliveries to have no additional effect on ledger balances, so that unreliable external rails cannot corrupt the ledger.
+**User Story:** As a developer, I want each account type to be protected from crossing to the wrong side of its normal balance, so that the ledger enforces accounting sign conventions at the data layer.
 
 #### Acceptance Criteria
 
-1. WHEN a webhook event is received, THE Ledger SHALL verify its signature and reject the event with an error response indicating authentication failure without modifying any account balances if the signature is invalid.
-2. IF a webhook event's event ID matches an already-processed event ID, THEN THE Ledger SHALL return an acknowledgment response identical in status to the original success response without applying any ledger operations.
-3. IF a webhook event arrives with a sequence number lower than the highest sequence number already applied for the same payment, THEN THE Ledger SHALL produce final account balances identical to those that would result from processing all distinct events in ascending sequence number order.
-4. THE Ledger SHALL ensure that for any combination of duplicate deliveries and sequence-number permutations of a webhook event set, the final account balances equal the balances produced by processing each distinct event exactly once in ascending sequence number order.
+1. WHEN a transaction is submitted, THE Ledger SHALL determine the normal-balance side for each participating account: asset and expense accounts are debit-normal (their valid balance is ≥ 0); liability and revenue accounts are credit-normal (their valid balance is ≤ 0).
+2. IF a submitted transaction would cause the post-transaction balance of any asset or expense account with `allow_overdraft = false` to be less than `0`, THEN THE Ledger SHALL reject the entire transaction, persist no entries, and return an error identifying which account would have crossed its normal balance.
+3. IF a submitted transaction would cause the post-transaction balance of any liability or revenue account with `allow_overdraft = false` to be greater than `0`, THEN THE Ledger SHALL reject the entire transaction, persist no entries, and return an error identifying which account would have crossed its normal balance.
+4. THE Ledger SHALL evaluate the normal-balance check and the entry write as a single atomic operation so that no entries are written if any check fails.
+5. WHERE an account has `allow_overdraft = true`, THE Ledger SHALL apply the transaction's entries to that account regardless of whether its post-transaction balance crosses its normal-balance side.
 
 ---
 
-### Requirement 8: Atomicity Under Fault Injection
+### Requirement 7: Atomicity Under Fault Injection
 
 **User Story:** As a developer, I want any crash between steps of a ledger operation to leave the database either fully before or fully after the operation, so that partial writes can never create inconsistent state.
 
@@ -140,20 +131,21 @@
 
 ---
 
-### Requirement 9: Schema and Migrations
+### Requirement 8: Schema and Migrations
 
 **User Story:** As a developer, I want the database schema to be managed by Drizzle ORM migrations, so that the ledger schema is version-controlled and reproducible.
 
 #### Acceptance Criteria
 
-1. THE Ledger SHALL define its schema using Drizzle ORM with TypeScript `"strict": true` compiler option and `bigint` column types for the monetary amount columns: `accounts.balance`, `entries.amount`, and `transactions.amount`.
+1. THE Ledger SHALL define its schema using Drizzle ORM with TypeScript `"strict": true` compiler option and `bigint` column types for monetary amounts; the only column that holds a monetary amount is `entries.amount` — no balance or total column exists on the `accounts` or `transactions` tables.
 2. THE Ledger SHALL provide Drizzle migration files that create the `accounts`, `transactions`, `entries`, and `idempotency_records` tables, where each table has a primary key column, and the migration files are applied in the order determined by their Drizzle-generated sequence identifiers.
-3. THE Ledger SHALL apply a unique index on `idempotency_records(key)`, a foreign-key constraint from `entries(transaction_id)` to `transactions(id)`, and a foreign-key constraint from `entries(account_id)` to `accounts(id)`.
-4. WHEN tests run, THE Ledger SHALL apply all migrations against a pglite in-memory instance before any test assertion executes, so that no external Postgres database is required.
+3. THE Ledger SHALL include on the `transactions` table a non-nullable `kind` column (enum of `capture`, `refund`, `transfer`) and a nullable `payment_id` UUID column that links refund and capture transactions to the same payment.
+4. THE Ledger SHALL apply a unique index on `idempotency_records(key)`, a foreign-key constraint from `entries(transaction_id)` to `transactions(id)`, and a foreign-key constraint from `entries(account_id)` to `accounts(id)`.
+5. WHEN tests run, THE Ledger SHALL apply all migrations against a pglite in-memory instance before any test assertion executes, so that no external Postgres database is required.
 
 ---
 
-### Requirement 10: Test Infrastructure
+### Requirement 9: Test Infrastructure
 
 **User Story:** As a developer, I want all property-based tests to run against an in-memory Postgres instance, so that the CI pipeline has no external dependencies.
 
@@ -164,7 +156,7 @@
 3. THE Test_Suite SHALL assert each of the five correctness properties listed in `ledger.md` with at least one dedicated falsifiable assertion per property:
    a. The sum of all ledger entries is always zero after any sequence of operations.
    b. Submitting an operation with an idempotency key that has already been processed results in the same ledger state as if the duplicate submission never occurred.
-   c. WHEN a webhook event is delivered more than once or out of order, THE Test_Suite SHALL assert that the resulting balances are identical to those produced by a single in-order delivery.
+   c. Replaying `postTransaction` calls in any order with duplicate idempotency keys yields the same final account balances as applying each distinct key exactly once.
    d. The total refunded amount for a given payment never exceeds the total captured amount for that payment.
    e. WHEN a mid-operation interruption is simulated at each step of a transaction, THE Test_Suite SHALL assert that the ledger state is either fully committed or fully absent, with no partial writes persisted.
 4. IF `vitest --run` has not exited within 120 seconds, THEN THE Test_Suite SHALL be considered failed, and the process SHALL exit with a non-zero code indicating a timeout.
