@@ -42,7 +42,8 @@ packages/core/
 │   │   ├── 0000_create_accounts.sql
 │   │   ├── 0001_create_transactions.sql
 │   │   ├── 0002_create_entries.sql
-│   │   └── 0003_create_idempotency_records.sql
+│   │   ├── 0003_create_idempotency_records.sql
+│   │   └── 0004_append_only_trigger.sql
 │   └── index.ts                 # public API surface
 ├── tests/
 │   ├── helpers/
@@ -284,6 +285,7 @@ export const accounts = pgTable('accounts', {
 
 ```ts
 import { pgTable, pgEnum, uuid, timestamp } from 'drizzle-orm/pg-core';
+import { idempotencyRecords } from './idempotency.js';
 
 export const transactionKind = pgEnum('transaction_kind', [
   'capture', 'refund', 'transfer',
@@ -293,7 +295,8 @@ export const transactions = pgTable('transactions', {
   id:              uuid('id').primaryKey(),
   kind:            transactionKind('kind').notNull(),
   paymentId:       uuid('payment_id'),              // nullable
-  idempotencyKey:  uuid('idempotency_key'),          // nullable FK back to idempotency_records
+  idempotencyKey:  uuid('idempotency_key')
+                     .references(() => idempotencyRecords.key), // nullable FK → idempotency_records.key
   createdAt:       timestamp('created_at', { withTimezone: true })
                      .notNull()
                      .defaultNow(),
@@ -323,6 +326,23 @@ export const entries = pgTable('entries', {
                    .defaultNow(),
 });
 ```
+
+#### Append-only trigger (migration `0004`)
+
+```sql
+CREATE OR REPLACE FUNCTION entries_no_mutate()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'entries are append-only: % on entries is forbidden', TG_OP;
+END;
+$$;
+
+CREATE TRIGGER entries_append_only
+  BEFORE UPDATE OR DELETE ON entries
+  FOR EACH ROW EXECUTE FUNCTION entries_no_mutate();
+```
+
+This trigger is the database-level enforcement of the append-only requirement (Req 2.4). It makes the constraint impossible to violate from any application path, ORM bypass, or direct SQL — not merely a convention.
 
 **`schema/idempotency.ts`**
 
@@ -394,7 +414,9 @@ erDiagram
 
 ## Operation Flows
 
-### `postTransaction(idempotencyKey, entries, kind, paymentId?)`
+### `postTransaction(idempotencyKey, entries, kind, paymentId?, tx?)`
+
+> `postTransaction` accepts an optional `tx` parameter (an open Drizzle transaction handle). When `tx` is supplied (called from `refund`), `postTransaction` skips the `db.transaction()` wrapper and the idempotency-claim step (steps 4–6) and uses `tx` for all DB operations, joining the caller's transaction. When `tx` is absent, `postTransaction` opens its own transaction as described below.
 
 This is the core write path. All steps execute inside a single `db.transaction()` call.
 
@@ -405,17 +427,28 @@ This is the core write path. All steps execute inside a single `db.transaction()
 3. Validate entry sum: compute `entries.reduce((s, e) => s + e.amount, 0n)` — throw `UnbalancedTransactionError(sum)` if `sum !== 0n`. All arithmetic is `bigint`; no floats.
 4. Begin `db.transaction()`.
 5. Compute `requestHash = hashPayload({ entries, kind, paymentId })`.
-6. Attempt `INSERT INTO idempotency_records (key, request_hash, status) VALUES ($key, $hash, 'in_progress')`.
-   - **On unique-constraint violation** (the key already exists):
-     - Read the existing record.
-     - If `status = 'completed'` and `request_hash` matches: check `created_at`; if older than 24 h throw `IdempotencyWindowExpiredError`; otherwise return the stored `response`.
-     - If `request_hash` differs: throw `DuplicateKeyError` (409 Conflict).
-     - If `status = 'in_progress'`: the first transaction has not committed; Postgres serializes by blocking on the unique constraint. After unblocking, re-read and apply the rules above.
-7. For each entry, fetch the current balance of `entry.accountId` and compute the prospective balance (`current + entry.amount`).
-   - If the account does not exist: throw `AccountNotFoundError`.
-   - If `allowOverdraft = false`:
-     - For `asset` or `expense` accounts: if prospective balance < 0 → throw `NormalBalanceViolationError`.
-     - For `liability` or `revenue` accounts: if prospective balance > 0 → throw `NormalBalanceViolationError`.
+6. Claim the idempotency key with:
+   ```sql
+   INSERT INTO idempotency_records (key, request_hash, status, created_at)
+   VALUES ($key, $hash, 'in_progress', now())
+   ON CONFLICT (key) DO NOTHING
+   RETURNING key
+   ```
+   - If the INSERT returns a row: the key is now claimed; continue to step 7.
+   - If the INSERT returns no row (key already existed): read the existing record with `SELECT … WHERE key = $key`.
+     - If `status = 'completed'` and `request_hash` matches: check `created_at`; if older than 24 h throw `IdempotencyWindowExpiredError`; otherwise return the stored `response` and exit (no further DB writes).
+     - If `request_hash` differs: throw `DuplicateKeyError` (409 Conflict); roll back.
+     - If `status = 'in_progress'`: the first caller's transaction has not committed yet; this means the first caller is still holding a row lock that prevents the `DO NOTHING` path from resolving — the duplicate caller should not loop-read but instead throw a retriable conflict error indicating the key is in-flight.
+7. Acquire row locks on every account referenced by the entries: execute
+   ```sql
+   SELECT account_id, type, allow_overdraft
+   FROM accounts
+   WHERE account_id = ANY($accountIds)
+   ORDER BY account_id   -- ascending order prevents deadlocks
+   FOR UPDATE
+   ```
+   If any `account_id` from the entries is missing from the result set, throw `AccountNotFoundError` for that account.
+   Then, for each entry, compute the prospective balance (`current balance + entry.amount`) using the locked account rows. Apply the normal-balance check (asset/expense: reject if < 0; liability/revenue: reject if > 0; skip if `allow_overdraft = true`). Because the rows are locked, no concurrent transaction can modify these accounts' entries until this transaction commits or rolls back.
 8. `INSERT INTO transactions (id, kind, payment_id, idempotency_key)`.
 9. `INSERT INTO entries (id, transaction_id, account_id, amount)` for every entry in a single bulk insert.
 10. `UPDATE idempotency_records SET status = 'completed', response = $response WHERE key = $key`.
@@ -425,8 +458,9 @@ This is the core write path. All steps execute inside a single `db.transaction()
 **On any error at steps 7–10:** the `db.transaction()` rolls back atomically, leaving the idempotency key unclaimed and no entries written.
 
 **Postgres serialization guarantees relied upon:**
-- The unique constraint on `idempotency_records(key)` acts as a mutex for concurrent duplicates.
-- All reads and writes within `db.transaction()` observe repeatable-read isolation (Postgres default for explicit transactions).
+- The unique constraint on `idempotency_records(key)` acts as a mutex for concurrent duplicates; `ON CONFLICT DO NOTHING` avoids aborting the transaction on a duplicate key.
+- Postgres runs explicit transactions at READ COMMITTED isolation by default. This spec does not require REPEATABLE READ because all shared-state reads that require consistency are protected by explicit row locks (`SELECT … FOR UPDATE`) rather than relying on snapshot isolation.
+- `SELECT … FOR UPDATE` on account rows (ordered by `account_id` ascending) prevents concurrent transactions from interleaving balance-modifying writes between the balance read and the entry insert, and the ascending-order locking prevents deadlocks between transactions that touch overlapping account sets.
 
 ### `balance(accountId)`
 
@@ -440,36 +474,30 @@ The balance is derived fresh on every call. No cached or stored balance column i
 
 ### `refund(idempotencyKey, paymentId, amount)`
 
-Refund delegates to `postTransaction` for idempotency and atomicity, but adds a cap-enforcement step inside the same database transaction.
+Refund delegates to `postTransaction` for entry writing, but adds idempotency-first ordering and cap enforcement inside the same database transaction.
 
 1. Validate `amount > 0n` — throw `InvalidRefundAmountError` if not.
-2. Begin `db.transaction()`.
-3. Verify payment exists: `SELECT id FROM transactions WHERE kind = 'capture' AND payment_id = $paymentId LIMIT 1 FOR UPDATE`. If no rows, throw `PaymentNotFoundError`. The `FOR UPDATE` lock prevents concurrent insertions of capture transactions (edge case) and serializes concurrent refunds against the same payment.
-4. Compute `captured`:
+2. Validate `idempotencyKey` is present — throw `MissingIdempotencyKeyError` if absent.
+3. Begin `db.transaction()`.
+4. **Claim the idempotency key first** (before any cap check), using the same `INSERT … ON CONFLICT DO NOTHING RETURNING` pattern described in `postTransaction` step 6. If the key already exists and `status = 'completed'` with a matching hash, return the stored response immediately — the refund already succeeded.
+5. Verify payment exists: `SELECT id FROM transactions WHERE kind = 'capture' AND payment_id = $paymentId LIMIT 1 FOR UPDATE`. If no rows, throw `PaymentNotFoundError` and roll back.
+6. Lock the payment's capture transactions:
    ```sql
-   SELECT COALESCE(SUM(e.amount), 0)
-   FROM entries e
-   JOIN transactions t ON e.transaction_id = t.id
-   WHERE t.kind = 'capture'
-     AND t.payment_id = $paymentId
-     AND e.amount > 0
+   SELECT id FROM transactions
+   WHERE kind = 'capture' AND payment_id = $paymentId
+   FOR UPDATE
    ```
-5. Compute `alreadyRefunded`:
-   ```sql
-   SELECT COALESCE(SUM(e.amount), 0)
-   FROM entries e
-   JOIN transactions t ON e.transaction_id = t.id
-   WHERE t.kind = 'refund'
-     AND t.payment_id = $paymentId
-     AND e.amount > 0
-   ```
-6. Compute `remaining = captured - alreadyRefunded`.
-7. If `amount > remaining`: throw `RefundCapExceededError(amount, remaining)`. Roll back — no entries written.
-8. Construct reversing `entries`: the caller supplies the debit/credit accounts; `refund` builds the entry list from the original capture entries, negating amounts, plus the requested `amount` routed to the appropriate accounts.
-9. Call `postTransaction(idempotencyKey, refundEntries, 'refund', paymentId)` — this re-uses the full idempotency and atomicity guarantees. Because this call is made within the same outer `db.transaction()` scope, the cap check and the entry write commit together.
+7. Compute `captured`: sum of positive `entries.amount` where `transaction_id` is in the locked capture set.
+8. Compute `alreadyRefunded`: sum of positive `entries.amount` where `transaction_id IN (SELECT id FROM transactions WHERE kind = 'refund' AND payment_id = $paymentId)` — also lock these rows with `FOR UPDATE`.
+9. Compute `remaining = captured − alreadyRefunded`.
+10. If `amount > remaining`: throw `RefundCapExceededError(amount, remaining)` and roll back.
+11. Build the refund entry list (negated amounts from the original capture entries, routed appropriately).
+12. Call `postTransaction(idempotencyKey, refundEntries, 'refund', paymentId, tx)`, passing the current open transaction handle `tx` so the cap check and the entry write commit in the same atomic unit. `postTransaction` skips the `BEGIN` and idempotency-claim steps when a transaction handle is passed (the key was already claimed in step 4 above).
+13. COMMIT.
 
 **Postgres serialization guarantee relied upon:**
-- `SELECT FOR UPDATE` on the capture transactions row locks the rows for the duration of the outer transaction, preventing concurrent refunds from both passing the cap check with the same `remaining` value.
+- `SELECT FOR UPDATE` on the capture transactions rows locks them for the duration of the outer transaction, preventing concurrent refunds from both passing the cap check with the same `remaining` value.
+- Claiming the idempotency key first (step 4) ensures a replay of an already-completed refund returns the stored response immediately, before the cap check runs against a fully-consumed `remaining` balance.
 
 ### Operation Flow Diagram
 
@@ -482,17 +510,16 @@ sequenceDiagram
     Caller->>LedgerAPI: postTransaction(key, entries, kind)
     LedgerAPI->>LedgerAPI: validate entries (≥2, sum=0)
     LedgerAPI->>DB: BEGIN
-    LedgerAPI->>DB: INSERT idempotency_records (key, hash, in_progress)
-    alt key already exists
-        DB-->>LedgerAPI: unique violation
+    LedgerAPI->>DB: INSERT idempotency_records ON CONFLICT DO NOTHING RETURNING key
+    alt no row returned (key existed)
         LedgerAPI->>DB: SELECT idempotency_records WHERE key=$1
         alt completed + hash match
             LedgerAPI-->>Caller: return stored response
         else hash mismatch
             LedgerAPI-->>Caller: 409 DuplicateKeyError
         end
-    else key claimed
-        LedgerAPI->>DB: SELECT balance for each account (normal-balance check)
+    else row returned (key claimed)
+        LedgerAPI->>DB: SELECT accounts FOR UPDATE (ordered by account_id, normal-balance check)
         alt normal balance violated
             LedgerAPI->>DB: ROLLBACK
             LedgerAPI-->>Caller: NormalBalanceViolationError
@@ -517,6 +544,12 @@ sequenceDiagram
 *For any* sequence of `postTransaction` calls where each call supplies two or more `bigint` entry amounts that sum to zero, the sum of **every** entry amount persisted in the ledger SHALL equal zero after each call in the sequence.
 
 **Validates: Requirements 2.7**
+
+#### Append-only enforcement
+
+The append-only constraint is enforced at two levels:
+1. **Application layer**: `postTransaction` only issues `INSERT` statements; no `UPDATE` or `DELETE` path exists on the `entries` table in the application code.
+2. **Database layer**: migration `0004` installs a `BEFORE UPDATE OR DELETE` trigger on `entries` that raises an exception, making the constraint unbypassable regardless of how the database is accessed.
 
 ### Property 2: Idempotency replay leaves the ledger unchanged
 
@@ -623,6 +656,7 @@ Cover specific examples and error conditions:
 
 - `hash.test.ts`: identical payloads → same hash; single-field difference → different hash.
 - `accounts.test.ts`: create/retrieve round-trip; missing-field rejection; duplicate-id rejection; invalid-type rejection.
+- `appendOnly.test.ts`: attempts an UPDATE and a DELETE on an `entries` row after a successful `postTransaction`. Both operations must throw a database error containing the text `"append-only"`. This test verifies that the trigger from migration `0004` is active and correctly rejects mutations at the DB level, not merely at the application layer.
 - Inline edge cases for `InsufficientEntriesError`, `UnbalancedTransactionError`, `MissingIdempotencyKeyError`.
 
 Unit tests use concrete, hand-crafted inputs. They do not use fast-check.
