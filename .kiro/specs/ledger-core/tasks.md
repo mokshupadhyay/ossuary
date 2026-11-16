@@ -13,7 +13,7 @@ Conventions for every task:
 ## Tasks
 
 - [ ] 1. Project setup
-  - [ ] 1.1 Scaffold the `packages/core` workspace package
+  - [-] 1.1 Scaffold the `packages/core` workspace package
     - Create `package.json` (ESM, name `@ossuary/core`), `tsconfig.json` with `"strict": true`, `drizzle.config.ts`, and `vitest.config.ts` (`testTimeout: 120_000`, `include: ['tests/**/*.test.ts', 'tests/**/*.property.ts']`, so the `*.property.ts` files are picked up)
     - Add dependencies: `drizzle-orm`, `@neondatabase/serverless`; dev dependencies: `typescript`, `vitest`, `fast-check`, `drizzle-kit`, `@electric-sql/pglite`
     - Ensure the repo root has a `pnpm-workspace.yaml` that includes `packages/*` and `apps/*`; set `engines.node` to `>=22`
