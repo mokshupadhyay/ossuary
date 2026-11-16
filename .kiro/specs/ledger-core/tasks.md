@@ -29,8 +29,8 @@ Conventions for every task:
     - Write `tests/unit/errors.test.ts` checking each error is `instanceof LedgerError` and carries its fields
     - _Requirements: 1.3, 1.4, 1.5, 2.2, 2.3, 3.2, 3.3, 3.7, 4.3, 5.3, 5.4, 6.2, 6.3_
 
-- [ ] 3. Deterministic request hash
-  - [ ] 3.1 Implement `src/ledger/hash.ts` and `tests/unit/hash.test.ts`
+- [x] 3. Deterministic request hash
+  - [x] 3.1 Implement `src/ledger/hash.ts` and `tests/unit/hash.test.ts`
     - Use a canonical serializer that recursively sorts object keys and encodes `bigint` as a tagged string. The design's `JSON.stringify(payload, Object.keys(payload).sort())` drops nested keys and throws on `bigint`, so do not copy it
     - Hash with SHA-256 from `node:crypto`
     - Tests: identical payloads give the same hash; reordered keys give the same hash; a change to any single field (amount, account, kind, paymentId, entry order) gives a different hash; `bigint` amounts hash without error

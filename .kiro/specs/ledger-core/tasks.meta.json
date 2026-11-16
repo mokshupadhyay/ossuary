@@ -38,6 +38,30 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794855659595
       }
+    ],
+    "3.1 Implement `src/ledger/hash.ts` and `tests/unit/hash.test.ts`": [
+      {
+        "executionId": "b70b7d3f-c64d-4018-8dfc-f0dbe5438683",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794858704387
+      },
+      {
+        "executionId": "4c23efa9-ae17-419f-86a4-9e7323d571ce",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794859498382
+      },
+      {
+        "executionId": "4c23efa9-ae17-419f-86a4-9e7323d571ce",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794860384566
+      }
+    ],
+    "3. Deterministic request hash": [
+      {
+        "executionId": "4c23efa9-ae17-419f-86a4-9e7323d571ce",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794860384618
+      }
     ]
   }
 }
