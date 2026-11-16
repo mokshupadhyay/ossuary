@@ -21,8 +21,8 @@ Conventions for every task:
     - Add `tests/unit/smoke.test.ts` asserting a `bigint` addition so `vitest --run` passes
     - _Requirements: 8.1, 9.1, 9.4_
 
-- [ ] 2. Shared errors and types
-  - [ ] 2.1 Implement `src/types/index.ts` and `src/errors/index.ts`
+- [x] 2. Shared errors and types
+  - [x] 2.1 Implement `src/types/index.ts` and `src/errors/index.ts`
     - Define all types from design.md (`AccountType`, `TransactionKind`, `Account`, `EntryInput`, `PostTransactionInput`, `RefundInput`, and so on) with `bigint` amounts
     - Define `LedgerError` and every typed subclass listed in design.md
     - Add one error not named in the design: `KeyInFlightError`. It is the retriable conflict that `postTransaction` throws when it sees an existing `in_progress` key (design step 6)

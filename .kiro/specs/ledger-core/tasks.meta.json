@@ -19,6 +19,25 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794855285901
       }
+    ],
+    "2.1 Implement `src/types/index.ts` and `src/errors/index.ts`": [
+      {
+        "executionId": "f1436a74-e5c6-498d-b5bc-a41a760ca3b3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794855326301
+      },
+      {
+        "executionId": "f1436a74-e5c6-498d-b5bc-a41a760ca3b3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794855659491
+      }
+    ],
+    "2. Shared errors and types": [
+      {
+        "executionId": "f1436a74-e5c6-498d-b5bc-a41a760ca3b3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794855659595
+      }
     ]
   }
 }
