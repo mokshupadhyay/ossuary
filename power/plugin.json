@@ -1,0 +1,15 @@
+{
+  "name": "ossuary",
+  "version": "0.1.0",
+  "description": "Poltergeist-proof money for Kiro: steering, skills and an MCP server that make AI-written payment code survive duplicate webhooks, double-taps, retries and crashes.",
+  "license": "MIT",
+  "steering": ["../.kiro/steering"],
+  "skills": ["./skills"],
+  "mcpServers": {
+    "ossuary": {
+      "command": "node",
+      "args": ["./mcp/dist/server.js"],
+      "env": {}
+    }
+  }
+}

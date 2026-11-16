@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Webhook handler check",
+  "description": "When a webhook handler is created, make sure it verifies signatures, dedupes events and uses the outbox.",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": ["**/webhooks/**/*.ts"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new webhook handler was created. Check it against .kiro/steering/webhooks.md: signature verified first with a constant-time compare, timestamp replay window, event-ID dedupe via a unique constraint, out-of-order safe, and side effects only through the outbox. List any gaps."
+  }
+}

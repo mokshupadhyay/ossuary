@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "name": "Summon the poltergeist",
+  "description": "Manual button: run the fault-injection property tests against the ledger and report the drift.",
+  "version": "1",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run the property-based test suite in packages/core with `pnpm --filter core test`. Summarise which of the five correctness properties passed, show any shrunk counterexample from fast-check, and state the final ledger drift (it must be 0)."
+  }
+}

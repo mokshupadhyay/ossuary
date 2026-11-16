@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "name": "Post-task test run",
+  "description": "After each spec task finishes, run the tests so a broken property is caught immediately.",
+  "version": "1",
+  "when": { "type": "postTaskExecution" },
+  "then": {
+    "type": "runCommand",
+    "command": "pnpm --filter core test --run"
+  }
+}

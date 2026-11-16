@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Money guard on save",
+  "description": "When core ledger code changes, check it against the money, ledger and idempotency steering rules.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["packages/core/src/**/*.ts"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A ledger source file just changed. Review only the changed file against .kiro/steering/money.md, ledger.md and idempotency.md. Flag: floats used for money, any UPDATE or DELETE on entries, a stored balance column, a money-moving function without an idempotency key, or a write outside a single database transaction. Reply with a short list of violations, or 'clean'."
+  }
+}

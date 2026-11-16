@@ -1,0 +1,23 @@
+name: money-audit
+on:
+  pull_request:
+    paths: ["packages/**", "apps/**", ".kiro/**"]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Kiro CLI
+        run: curl -fsSL https://cli.kiro.dev/install | bash && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Audit the diff with the money-auditor agent
+        env:
+          KIRO_API_KEY: ${{ secrets.KIRO_API_KEY }}
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > diff.patch
+          kiro-cli chat --no-interactive --agent money-auditor \
+            "Audit diff.patch against the steering rules." | tee audit.md
+          grep -q "VERDICT: PASS" audit.md
