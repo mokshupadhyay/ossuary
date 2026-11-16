@@ -94,13 +94,14 @@
 
 #### Acceptance Criteria
 
-1. WHEN `refund` is called, THE Ledger SHALL compute the total captured amount for the given `payment_id` by summing the `entries.amount` values across all transactions of `kind = 'capture'` linked to that `payment_id`.
-2. WHEN `refund` is called, THE Ledger SHALL compute the total already-refunded amount for the given `payment_id` by summing the `entries.amount` values across all successfully posted transactions of `kind = 'refund'` linked to that `payment_id`.
+1. WHEN `refund` is called, THE Ledger SHALL compute the total captured amount for the given `payment_id` by summing the positive (debit) `entries.amount` values — those greater than zero — across all transactions of `kind = 'capture'` linked to that `payment_id`; because every transaction's entries sum to zero, summing all entries of a capture transaction would always yield zero and must not be used.
+2. WHEN `refund` is called, THE Ledger SHALL compute the total already-refunded amount for the given `payment_id` by summing the positive (debit) `entries.amount` values — those greater than zero — across all successfully posted transactions of `kind = 'refund'` linked to that `payment_id`; the same zero-sum reasoning applies and summing all entries must not be used.
 3. IF the requested refund `amount` is less than or equal to zero, or if the requested `amount` would cause the total refunded amount to exceed the total captured amount, THEN THE Ledger SHALL reject the refund with an error indicating the specific reason (invalid amount or cap exceeded), without writing any ledger entries.
 4. IF `refund` is called with a `payment_id` that does not correspond to any existing captured transaction in the ledger, THEN THE Ledger SHALL reject the refund with an error indicating the payment was not found, without writing any ledger entries.
 5. WHEN a valid refund is accepted, THE Ledger SHALL post it as a new reversing transaction using `postTransaction`, inheriting full idempotency and atomicity guarantees.
 6. THE Ledger SHALL enforce the refund cap check and the entry write atomically, such that no two concurrent `refund` calls for the same `payment_id` can both pass the cap check when only one of them fits within the remaining refundable amount.
 7. **Property (fast-check):** FOR ALL sequences of `refund` calls against any `payment_id`, the total refunded amount SHALL be less than or equal to the total captured amount for that `payment_id`.
+8. **Property (fast-check):** FOR ANY `payment_id` with a known remaining refundable amount `R` (total captured minus total already refunded), a `refund` call for exactly `R` SHALL be accepted and a `refund` call for `R + 1` SHALL be rejected with a cap-exceeded error, with no ledger entries written for the rejected call.
 
 ---
 
