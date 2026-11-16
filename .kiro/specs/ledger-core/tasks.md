@@ -37,7 +37,7 @@ Conventions for every task:
     - _Requirements: 3.1_
 
 - [ ] 4. Schema, migrations, and test database
-  - [ ] 4.1 Implement the Drizzle schema in `src/schema/`
+  - [-] 4.1 Implement the Drizzle schema in `src/schema/`
     - Create `accounts.ts`, `idempotency.ts`, `transactions.ts` (with the nullable `idempotency_key` FK to `idempotency_records.key`), `entries.ts` (`bigint` mode `'bigint'`, FKs to `transactions` and `accounts`), and `index.ts`
     - Generate migrations `0000`-`0003` with drizzle-kit into `src/migrations/`
     - The unique index on `idempotency_records(key)` must be present
