@@ -49,12 +49,12 @@ Conventions for every task:
     - Register it in the drizzle migration journal so it applies in order
     - _Requirements: 2.4, 8.2_
 
-  - [-] 4.3 Implement `tests/helpers/createTestDb.ts` and a migration smoke test
+  - [x] 4.3 Implement `tests/helpers/createTestDb.ts` and a migration smoke test
     - Create an in-memory `PGlite`, wrap it with `drizzle-orm/pglite`, and run all migrations from `./src/migrations`. Read no environment variables
     - Write `tests/unit/migrations.test.ts`. It asserts that the four tables exist, that the unique index on `idempotency_records(key)` exists, that the FKs on `entries` exist, and that `transactions.kind` rejects values outside the enum
     - _Requirements: 8.2, 8.3, 8.4, 8.5, 9.1_
 
-  - [ ] 4.4 Implement `src/db/client.ts` and `src/db/migrate.ts`
+  - [-] 4.4 Implement `src/db/client.ts` and `src/db/migrate.ts`
     - `createDb(connectionString)` builds a Neon pool and returns a Drizzle `Db`. Use an ESM `import`, not `require`. Define a `Db` type that both the Neon and pglite drivers satisfy, so business logic accepts either by injection
     - `runMigrations(db)` applies the migrations folder
     - Test: `runMigrations` runs against a pglite `Db` in `tests/unit/migrate.test.ts` (no network)
