@@ -246,6 +246,32 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794929305628
       }
+    ],
+    "10.2 Wire the public API in `src/index.ts`": [
+      {
+        "executionId": "2955e073-5db0-48a3-a9e5-d5259869ac6a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794929714414
+      },
+      {
+        "executionId": "2955e073-5db0-48a3-a9e5-d5259869ac6a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794932829214
+      }
+    ],
+    "10. Refund": [
+      {
+        "executionId": "2955e073-5db0-48a3-a9e5-d5259869ac6a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794932829291
+      }
+    ],
+    "9. Checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "2955e073-5db0-48a3-a9e5-d5259869ac6a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794932829336
+      }
     ]
   }
 }

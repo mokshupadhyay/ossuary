@@ -108,10 +108,10 @@ Conventions for every task:
     - Tests: 0n for an account with no entries; the sum is correct after several posts; an unknown account throws; a balance read after a new post reflects it immediately
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [x] 9. Checkpoint - Ensure all tests pass
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Refund
+- [x] 10. Refund
   - [x] 10.1 Implement `src/ledger/refund.ts` and `tests/unit/refund.test.ts`
     - Validate `amount > 0n` (`InvalidRefundAmountError`) and a present key (`MissingIdempotencyKeyError`) before opening a transaction
     - Open `db.transaction()` and claim the idempotency key first, using the same `ON CONFLICT DO NOTHING RETURNING` pattern, with the same replay, `DuplicateKeyError`, expiry, and in-flight handling as `postTransaction`. Factor the claim and replay logic into a shared helper used by both functions
@@ -121,12 +121,12 @@ Conventions for every task:
     - Tests: a full refund succeeds; a partial refund followed by the remainder succeeds; an over-cap refund throws and writes nothing; an unknown payment throws; a non-positive amount throws; a replay with the same key returns the stored response even after the payment is fully refunded; a different amount on the same key throws `DuplicateKeyError`
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-  - [ ] 10.2 Wire the public API in `src/index.ts`
+  - [x] 10.2 Wire the public API in `src/index.ts`
     - Export `createAccount`, `getAccount`, `postTransaction`, `balance`, `refund`, `createDb`, `runMigrations`, and all types and errors. Do not export anything from `schema/`
     - Write `tests/unit/publicApi.test.ts`. It checks the exported names and that no schema objects are exposed. It also runs an end-to-end flow (create accounts, capture, balance, partial refund, balance) through the public entry point
     - _Requirements: 2.5, 4.4, 5.5_
 
-- [ ] 11. Checkpoint - Ensure all tests pass
+- [x] 11. Checkpoint - Ensure all tests pass
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. Property-based tests (required)
