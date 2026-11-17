@@ -129,8 +129,8 @@ Conventions for every task:
 - [x] 11. Checkpoint - Ensure all tests pass
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Property-based tests (required)
-  - [ ] 12.1 Create shared fast-check arbitraries in `tests/helpers/arbitraries.ts`
+- [x] 12. Property-based tests (required)
+  - [x] 12.1 Create shared fast-check arbitraries in `tests/helpers/arbitraries.ts`
     - `validTransactionArb`: 2 or more entries over a small pool of accounts (set up with `allowOverdraft: true` where the property needs unconstrained postings) whose `bigint` amounts sum to exactly 0n
     - `captureTransactionArb` and `refundArb` for the refund properties
     - A helper to build a fresh `createTestDb()` and seed accounts per run
@@ -138,37 +138,37 @@ Conventions for every task:
     - Add `tests/unit/arbitraries.test.ts`, which asserts with fast-check that generated transactions always sum to 0n and have at least 2 entries
     - _Requirements: 9.1, 9.2_
 
-  - [ ] 12.2 Write property test for Property 1 in `tests/property/entrySum.property.ts`
+  - [x] 12.2 Write property test for Property 1 in `tests/property/entrySum.property.ts`
     - **Property 1: Global entry sum is always zero**
     - Generate `fc.array(validTransactionArb, { minLength: 1, maxLength: 200 })`; after each `postTransaction`, assert `SUM(entries.amount) === 0n`. Include calls that are rejected (for example by normal-balance violations) and assert the sum stays 0n
     - Tag: `// Feature: ledger-core, Property 1`
     - **Validates: Requirements 2.7, 9.3a**
 
-  - [ ] 12.3 Write property test for Property 2 in `tests/property/idempotency.property.ts`
+  - [x] 12.3 Write property test for Property 2 in `tests/property/idempotency.property.ts`
     - **Property 2: Idempotency replay leaves the ledger unchanged**
     - Generate a valid transaction and a replay count in 1-50; after the first call, replay N times and assert that the entry count, every account balance, and the returned response are unchanged
     - Tag: `// Feature: ledger-core, Property 2`
     - **Validates: Requirements 3.8, 9.3b**
 
-  - [ ] 12.4 Write property test for Property 3 in `tests/property/idempotency.property.ts`
+  - [x] 12.4 Write property test for Property 3 in `tests/property/idempotency.property.ts`
     - **Property 3: Replay in any order with duplicates yields the same balances**
     - Generate 1-20 distinct transactions (distinct keys) and a delivery sequence that is a permutation with duplicates. Use accounts with `allowOverdraft: true` so order cannot change acceptance. Compare final balances with a reference ledger that applies each distinct key once
     - Tag: `// Feature: ledger-core, Property 3`
     - **Validates: Requirements 9.3, 9.3c, 3.8**
 
-  - [ ] 12.5 Write property test for Property 4 in `tests/property/refundCap.property.ts`
+  - [x] 12.5 Write property test for Property 4 in `tests/property/refundCap.property.ts`
     - **Property 4: Total refunded per payment never exceeds total captured**
     - Generate a capture and 0-20 refund attempts of arbitrary positive `bigint` amounts with distinct keys; catch `RefundCapExceededError`; after every call assert that the sum of positive entry amounts on `refund` transactions is at most the sum on `capture` transactions
     - Tag: `// Feature: ledger-core, Property 4`
     - **Validates: Requirements 5.7, 9.3d**
 
-  - [ ] 12.6 Write property test for Property 5 in `tests/property/refundCap.property.ts`
+  - [x] 12.6 Write property test for Property 5 in `tests/property/refundCap.property.ts`
     - **Property 5: Boundary - exact remaining amount accepted, one unit over rejected**
     - Generate a capture and a prior refund total no larger than the capture. Compute `R = captured - alreadyRefunded`. If `R > 0n`, `refund(R)` succeeds, then `refund(R + 1n)` with a new key throws `RefundCapExceededError`. Assert that the rejected call wrote no transaction, entries, or idempotency record. Also cover `R = 0n`, where `refund(1n)` is rejected
     - Tag: `// Feature: ledger-core, Property 5`
     - **Validates: Requirements 5.8, 5.3**
 
-  - [ ] 12.7 Write property test for Property 6 in `tests/property/atomicity.property.ts`
+  - [x] 12.7 Write property test for Property 6 in `tests/property/atomicity.property.ts`
     - **Property 6: Crash at any step leaves the ledger fully committed or fully absent**
     - Generate a valid transaction and a crash point from 0 to NUM_STEPS-1, where the steps are: before the key claim, after the claim, after the account lock, after the transactions insert, after the entries insert, and after the idempotency update. Inject the crash with a wrapper or proxy around the Drizzle transaction handle that throws after the Nth statement. If the proxy cannot intercept every step, add a small internal test-only hook in `postTransaction` and document it
     - After the crash, assert one of two states: all of the idempotency record, the entries, and the `completed` status are present, or none are. Assert `SUM(entries.amount) === 0n` in both cases. Retry the same key to completion and assert that exactly one set of entries exists, or that the stored response is returned
