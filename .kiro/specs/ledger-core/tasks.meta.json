@@ -114,6 +114,37 @@
         "executionId": "69ab88c0-8346-4562-83c9-1a37b8c2fe60",
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794888156475
+      },
+      {
+        "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794888684145
+      }
+    ],
+    "4. Schema, migrations, and test database": [
+      {
+        "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794888684170
+      }
+    ],
+    "5. Checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794888693814
+      },
+      {
+        "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794888774161
+      }
+    ],
+    "6.1 Implement `src/ledger/accounts.ts` (`createAccount`, `getAccount`) and `tests/unit/accounts.test.ts`": [
+      {
+        "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794888774897
       }
     ]
   }

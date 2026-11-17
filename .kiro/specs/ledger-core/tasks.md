@@ -36,7 +36,7 @@ Conventions for every task:
     - Tests: identical payloads give the same hash; reordered keys give the same hash; a change to any single field (amount, account, kind, paymentId, entry order) gives a different hash; `bigint` amounts hash without error
     - _Requirements: 3.1_
 
-- [ ] 4. Schema, migrations, and test database
+- [x] 4. Schema, migrations, and test database
   - [x] 4.1 Implement the Drizzle schema in `src/schema/`
     - Create `accounts.ts`, `idempotency.ts`, `transactions.ts` (with the nullable `idempotency_key` FK to `idempotency_records.key`), `entries.ts` (`bigint` mode `'bigint'`, FKs to `transactions` and `accounts`), and `index.ts`
     - Generate migrations `0000`-`0003` with drizzle-kit into `src/migrations/`
@@ -54,17 +54,17 @@ Conventions for every task:
     - Write `tests/unit/migrations.test.ts`. It asserts that the four tables exist, that the unique index on `idempotency_records(key)` exists, that the FKs on `entries` exist, and that `transactions.kind` rejects values outside the enum
     - _Requirements: 8.2, 8.3, 8.4, 8.5, 9.1_
 
-  - [-] 4.4 Implement `src/db/client.ts` and `src/db/migrate.ts`
+  - [x] 4.4 Implement `src/db/client.ts` and `src/db/migrate.ts`
     - `createDb(connectionString)` builds a Neon pool and returns a Drizzle `Db`. Use an ESM `import`, not `require`. Define a `Db` type that both the Neon and pglite drivers satisfy, so business logic accepts either by injection
     - `runMigrations(db)` applies the migrations folder
     - Test: `runMigrations` runs against a pglite `Db` in `tests/unit/migrate.test.ts` (no network)
     - _Requirements: 8.2, 8.5, 9.1_
 
-- [ ] 5. Checkpoint - Ensure all tests pass
+- [x] 5. Checkpoint - Ensure all tests pass
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 6. Account management
-  - [ ] 6.1 Implement `src/ledger/accounts.ts` (`createAccount`, `getAccount`) and `tests/unit/accounts.test.ts`
+  - [-] 6.1 Implement `src/ledger/accounts.ts` (`createAccount`, `getAccount`) and `tests/unit/accounts.test.ts`
     - `allowOverdraft` defaults to `false`; name length 1-255
     - Throw `MissingFieldError` (naming the field), `InvalidAccountTypeError`, and `DuplicateAccountError`; nothing is written on failure
     - Tests: create/retrieve round trip returns the full record; each missing field is rejected; an invalid type is rejected; a duplicate `accountId` is rejected; the default `allowOverdraft` is `false`

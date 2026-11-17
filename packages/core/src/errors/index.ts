@@ -47,6 +47,16 @@ export class InvalidAccountTypeError extends LedgerError {
   }
 }
 
+/** A field is present but its value is not acceptable (bad format or length). */
+export class InvalidFieldError extends LedgerError {
+  constructor(
+    public readonly field: string,
+    public readonly reason: string,
+  ) {
+    super(`Invalid ${field}: ${reason}`);
+  }
+}
+
 export class NormalBalanceViolationError extends LedgerError {
   constructor(
     public readonly accountId: string,
