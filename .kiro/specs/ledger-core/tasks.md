@@ -44,7 +44,7 @@ Conventions for every task:
     - Write `tests/unit/schema.test.ts` that inspects the Drizzle table definitions. It asserts that no column named like `balance` or `total` exists on any table, and that `entries.amount` is the only bigint money column
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-  - [ ] 4.2 Add append-only trigger migration `0004_append_only_trigger.sql`
+  - [-] 4.2 Add append-only trigger migration `0004_append_only_trigger.sql`
     - Create the `entries_no_mutate()` function and the `BEFORE UPDATE OR DELETE` trigger on `entries`. The exception message must contain `append-only`
     - Register it in the drizzle migration journal so it applies in order
     - _Requirements: 2.4, 8.2_

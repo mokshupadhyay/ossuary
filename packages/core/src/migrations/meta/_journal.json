@@ -29,6 +29,13 @@
       "when": 1794860834807,
       "tag": "0003_create_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794885977919,
+      "tag": "0004_append_only_trigger",
+      "breakpoints": true
     }
   ]
 }
