@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, sql } from 'drizzle-orm';
-import type { Db } from '../db/client.js';
+import type { Db, Tx } from '../db/client.js';
 import {
   AccountNotFoundError,
   DuplicateKeyError,
@@ -137,13 +137,55 @@ async function enforceNormalBalances(
 }
 
 /**
+ * Shared write path: lock accounts, check normal balances, insert the
+ * transaction row and its entries. Runs on whatever handle it is given.
+ */
+async function writeTransaction(
+  tx: Pick<Db, 'select' | 'insert'>,
+  idempotencyKey: string,
+  kind: PostTransactionInput['kind'],
+  paymentId: string | null,
+  normalized: readonly { accountId: string; amount: bigint }[],
+): Promise<PostTransactionResult> {
+  await enforceNormalBalances(tx, normalized);
+
+  const transactionId = randomUUID();
+  await tx.insert(transactions).values({
+    id: transactionId,
+    kind,
+    paymentId,
+    idempotencyKey,
+  });
+
+  const rows = normalized.map((e) => ({
+    id: randomUUID(),
+    transactionId,
+    accountId: e.accountId,
+    amount: e.amount,
+  }));
+  await tx.insert(entries).values(rows);
+
+  return { transactionId, entryIds: rows.map((r) => r.id) };
+}
+
+/**
  * Posts a balanced set of entries atomically, claiming the idempotency key in
  * the same database transaction. All validation runs before any DB call.
  * Zero-amount entries are allowed: they cannot unbalance a transaction.
+ *
+ * Optional `callerTx`: an open Drizzle transaction owned by the caller (used by
+ * `refund`). In that mode this function does NOT open a transaction, claim the
+ * key, hash the payload, resolve existing keys, or mark the record `completed`.
+ * Contract: the caller must already have claimed `idempotencyKey` (a row in
+ * `idempotency_records`) on the same `callerTx`, because `transactions.idempotency_key`
+ * is a foreign key to it, and the caller is responsible for the request-hash
+ * check and for setting the final `completed` status. Validation, account
+ * locking, normal-balance checks and entry writes all still run, on `callerTx`.
  */
 export async function postTransaction(
   db: Db,
   input: PostTransactionInput,
+  callerTx?: Tx,
 ): Promise<PostTransactionResult> {
   const { idempotencyKey, entries: entryInputs, kind, paymentId } = (input ??
     {}) as Partial<PostTransactionInput>;
@@ -182,6 +224,11 @@ export async function postTransaction(
   const normalizedPaymentId =
     paymentId !== undefined && paymentId !== null ? paymentId.toLowerCase() : null;
 
+  // Caller-owned transaction: the caller has already claimed the key.
+  if (callerTx) {
+    return writeTransaction(callerTx, idempotencyKey, kind, normalizedPaymentId, normalized);
+  }
+
   const requestHash = hashPayload({
     entries: normalized,
     kind,
@@ -199,28 +246,13 @@ export async function postTransaction(
       return resolveExistingKey(tx, idempotencyKey, requestHash);
     }
 
-    await enforceNormalBalances(tx, normalized);
-
-    const transactionId = randomUUID();
-    await tx.insert(transactions).values({
-      id: transactionId,
-      kind,
-      paymentId: normalizedPaymentId,
+    const response = await writeTransaction(
+      tx,
       idempotencyKey,
-    });
-
-    const rows = normalized.map((e) => ({
-      id: randomUUID(),
-      transactionId,
-      accountId: e.accountId,
-      amount: e.amount,
-    }));
-    await tx.insert(entries).values(rows);
-
-    const response: PostTransactionResult = {
-      transactionId,
-      entryIds: rows.map((r) => r.id),
-    };
+      kind,
+      normalizedPaymentId,
+      normalized,
+    );
     await tx
       .update(idempotencyRecords)
       .set({ status: 'completed', response })
