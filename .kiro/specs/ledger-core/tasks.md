@@ -70,7 +70,7 @@ Conventions for every task:
     - Tests: create/retrieve round trip returns the full record; each missing field is rejected; an invalid type is rejected; a duplicate `accountId` is rejected; the default `allowOverdraft` is `false`
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 7. postTransaction
+- [x] 7. postTransaction
   - [x] 7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`
     - Pre-transaction validation: `MissingIdempotencyKeyError`, `InsufficientEntriesError` (fewer than 2 entries), `UnbalancedTransactionError` (`bigint` sum not 0n)
     - Inside one `db.transaction()` (READ COMMITTED, the default): compute the hash with `hashPayload`, then claim the key with `INSERT ... ON CONFLICT (key) DO NOTHING RETURNING key`
@@ -102,7 +102,7 @@ Conventions for every task:
     - After a successful `postTransaction`, a raw `UPDATE entries ...` and a raw `DELETE FROM entries ...` must each throw an error whose message contains `append-only`
     - _Requirements: 2.4_
 
-- [ ] 8. Derived balance
+- [x] 8. Derived balance
   - [x] 8.1 Implement `src/ledger/balance.ts` and `tests/unit/balance.test.ts`
     - Check the account exists (`AccountNotFoundError` if not), then `SELECT COALESCE(SUM(amount), 0)` and return a `bigint`. No transaction wrapper
     - Tests: 0n for an account with no entries; the sum is correct after several posts; an unknown account throws; a balance read after a new post reflects it immediately
