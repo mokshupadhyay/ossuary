@@ -201,6 +201,25 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794924255755
       }
+    ],
+    "7.5 Write `tests/unit/appendOnly.test.ts`": [
+      {
+        "executionId": "6b700258-ab93-4249-a28f-d0d9cdc5f5b6",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794924697772
+      },
+      {
+        "executionId": "6b700258-ab93-4249-a28f-d0d9cdc5f5b6",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794925324244
+      }
+    ],
+    "7.4 Add the optional `tx` parameter to `postTransaction`": [
+      {
+        "executionId": "6b700258-ab93-4249-a28f-d0d9cdc5f5b6",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794925325240
+      }
     ]
   }
 }

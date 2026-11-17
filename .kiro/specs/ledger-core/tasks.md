@@ -92,13 +92,13 @@ Conventions for every task:
     - Tests: each of the four account types, rejected and accepted; `allow_overdraft = true` bypasses the check; a rejected transaction writes no entries and leaves the key unclaimed
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [ ] 7.4 Add the optional `tx` parameter to `postTransaction`
+  - [-] 7.4 Add the optional `tx` parameter to `postTransaction`
     - When `tx` is supplied, skip `db.transaction()` and the idempotency claim and run all statements on the caller's handle. Account locking, normal-balance checks, and entry writes still run. Setting the final `completed` status is left to the caller
     - Keep the no-`tx` behavior unchanged
     - Tests: calling with a `tx` opened by the test commits atomically with the caller's work; rolling back the outer transaction removes the entries
     - _Requirements: 5.5, 5.6, 7.2_
 
-  - [ ] 7.5 Write `tests/unit/appendOnly.test.ts`
+  - [x] 7.5 Write `tests/unit/appendOnly.test.ts`
     - After a successful `postTransaction`, a raw `UPDATE entries ...` and a raw `DELETE FROM entries ...` must each throw an error whose message contains `append-only`
     - _Requirements: 2.4_
 

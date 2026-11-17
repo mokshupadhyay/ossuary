@@ -250,3 +250,34 @@ describe('postTransaction account id case normalisation', () => {
     expect(ids.every((id) => id === id.toLowerCase())).toBe(true);
   });
 });
+
+describe('postTransaction paymentId normalisation', () => {
+  it('treats a retry with different paymentId letter case as a replay', async () => {
+    const pid = randomUUID().toLowerCase();
+    const i = { ...input(), paymentId: pid };
+    const first = await postTransaction(db, i);
+    const before = await counts();
+    expect(await postTransaction(db, { ...i, paymentId: pid.toUpperCase() })).toEqual(first);
+    const mixed = pid
+      .split('')
+      .map((c, n) => (n % 2 ? c.toUpperCase() : c))
+      .join('');
+    expect(await postTransaction(db, { ...i, paymentId: mixed })).toEqual(first);
+    expect(await counts()).toEqual(before);
+  });
+
+  it('stores an uppercase paymentId lowercase', async () => {
+    const pid = randomUUID().toLowerCase();
+    await postTransaction(db, { ...input(), paymentId: pid.toUpperCase() });
+    const [tx] = await handle.db.select().from(transactions);
+    expect(tx!.paymentId).toBe(pid);
+  });
+
+  it('still rejects a genuinely different paymentId on the same key', async () => {
+    const i = { ...input(), paymentId: randomUUID() };
+    await postTransaction(db, i);
+    await expect(postTransaction(db, { ...i, paymentId: randomUUID() })).rejects.toBeInstanceOf(
+      DuplicateKeyError,
+    );
+  });
+});

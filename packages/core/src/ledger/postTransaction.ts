@@ -178,10 +178,14 @@ export async function postTransaction(
     amount: e.amount,
   }));
 
+  // Same for paymentId, so a retry in a different letter case is a replay.
+  const normalizedPaymentId =
+    paymentId !== undefined && paymentId !== null ? paymentId.toLowerCase() : null;
+
   const requestHash = hashPayload({
     entries: normalized,
     kind,
-    paymentId: paymentId ?? null,
+    paymentId: normalizedPaymentId,
   });
 
   return db.transaction(async (tx) => {
@@ -201,7 +205,7 @@ export async function postTransaction(
     await tx.insert(transactions).values({
       id: transactionId,
       kind,
-      paymentId: paymentId ?? null,
+      paymentId: normalizedPaymentId,
       idempotencyKey,
     });
 
