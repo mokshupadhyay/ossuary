@@ -44,12 +44,12 @@ Conventions for every task:
     - Write `tests/unit/schema.test.ts` that inspects the Drizzle table definitions. It asserts that no column named like `balance` or `total` exists on any table, and that `entries.amount` is the only bigint money column
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-  - [-] 4.2 Add append-only trigger migration `0004_append_only_trigger.sql`
+  - [x] 4.2 Add append-only trigger migration `0004_append_only_trigger.sql`
     - Create the `entries_no_mutate()` function and the `BEFORE UPDATE OR DELETE` trigger on `entries`. The exception message must contain `append-only`
     - Register it in the drizzle migration journal so it applies in order
     - _Requirements: 2.4, 8.2_
 
-  - [ ] 4.3 Implement `tests/helpers/createTestDb.ts` and a migration smoke test
+  - [-] 4.3 Implement `tests/helpers/createTestDb.ts` and a migration smoke test
     - Create an in-memory `PGlite`, wrap it with `drizzle-orm/pglite`, and run all migrations from `./src/migrations`. Read no environment variables
     - Write `tests/unit/migrations.test.ts`. It asserts that the four tables exist, that the unique index on `idempotency_records(key)` exists, that the FKs on `entries` exist, and that `transactions.kind` rejects values outside the enum
     - _Requirements: 8.2, 8.3, 8.4, 8.5, 9.1_

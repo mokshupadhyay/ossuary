@@ -90,6 +90,18 @@
         "executionId": "371b8b6d-1cbf-463a-abe7-a7881d884c6e",
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794885908872
+      },
+      {
+        "executionId": "9763099d-5a64-4b41-be74-f8b55c4a5775",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794886332749
+      }
+    ],
+    "4.3 Implement `tests/helpers/createTestDb.ts` and a migration smoke test": [
+      {
+        "executionId": "9763099d-5a64-4b41-be74-f8b55c4a5775",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794886333540
       }
     ]
   }
