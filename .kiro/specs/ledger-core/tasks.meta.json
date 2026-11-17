@@ -182,6 +182,18 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794920390741
       }
+    ],
+    "7.3 Add account locking and normal-balance enforcement to `postTransaction`": [
+      {
+        "executionId": "591bc1b6-9bbb-4cf7-abdc-6712d0573a08",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794923488055
+      },
+      {
+        "executionId": "591bc1b6-9bbb-4cf7-abdc-6712d0573a08",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794923778328
+      }
     ]
   }
 }

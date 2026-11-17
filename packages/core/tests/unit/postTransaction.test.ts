@@ -4,6 +4,7 @@ import { createAccount } from '../../src/ledger/accounts.js';
 import { postTransaction } from '../../src/ledger/postTransaction.js';
 import { hashPayload } from '../../src/ledger/hash.js';
 import {
+  AccountNotFoundError,
   DuplicateKeyError,
   IdempotencyWindowExpiredError,
   KeyInFlightError,
@@ -115,10 +116,10 @@ describe('postTransaction', () => {
       kind: 'transfer' as const,
       entries: [
         { accountId: a, amount: 10n },
-        { accountId: randomUUID(), amount: -10n }, // unknown account trips the FK
+        { accountId: randomUUID(), amount: -10n }, // unknown account
       ],
     };
-    await expect(postTransaction(db, bad)).rejects.toThrow();
+    await expect(postTransaction(db, bad)).rejects.toBeInstanceOf(AccountNotFoundError);
     expect(await counts()).toEqual({ keys: 0, txs: 0, entries: 0 });
 
     const ok = await postTransaction(db, { ...input(10n), idempotencyKey: key });

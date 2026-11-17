@@ -86,7 +86,7 @@ Conventions for every task:
     - Tests: replay returns the identical response and leaves the entry count unchanged; a changed payload on the same key throws `DuplicateKeyError`; an old record (backdate `created_at` in the test) throws `IdempotencyWindowExpiredError`; an `in_progress` record throws `KeyInFlightError`
     - _Requirements: 3.2, 3.3, 3.4, 3.5_
 
-  - [ ] 7.3 Add account locking and normal-balance enforcement to `postTransaction`
+  - [x] 7.3 Add account locking and normal-balance enforcement to `postTransaction`
     - After the claim, run `SELECT account_id, type, allow_overdraft FROM accounts WHERE account_id = ANY($ids) ORDER BY account_id FOR UPDATE`. Throw `AccountNotFoundError` for any missing account
     - For each entry, compute the prospective balance (`SUM(entries.amount)` plus the entry amount). Asset/expense with a balance below 0 and liability/revenue with a balance above 0 throw `NormalBalanceViolationError`, unless `allow_overdraft` is true. Multiple entries to one account in a single transaction are summed before the check
     - Tests: each of the four account types, rejected and accepted; `allow_overdraft = true` bypasses the check; a rejected transaction writes no entries and leaves the key unclaimed

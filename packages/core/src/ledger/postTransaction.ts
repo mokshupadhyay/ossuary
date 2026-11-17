@@ -1,16 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import {
+  AccountNotFoundError,
   DuplicateKeyError,
   IdempotencyWindowExpiredError,
   InsufficientEntriesError,
   InvalidFieldError,
   KeyInFlightError,
   MissingIdempotencyKeyError,
+  NormalBalanceViolationError,
   UnbalancedTransactionError,
 } from '../errors/index.js';
-import { entries, idempotencyRecords, transactions } from '../schema/index.js';
+import { accounts, entries, idempotencyRecords, transactions } from '../schema/index.js';
 import type { PostTransactionInput } from '../types/index.js';
 import { hashPayload } from './hash.js';
 
@@ -78,6 +80,64 @@ async function resolveExistingKey(
 }
 
 /**
+ * Locks every participating account, then rejects the transaction if any
+ * non-overdraft account would end on the wrong side of its normal balance.
+ *
+ * Locks are taken with ORDER BY account_id ... FOR UPDATE, so every
+ * transaction acquires them in the same ascending order (deadlock avoidance).
+ * Balances are read in a separate statement AFTER the lock is held: under
+ * READ COMMITTED that statement sees everything committed by any transaction
+ * that held these locks before us, so the check cannot use a stale balance.
+ */
+async function enforceNormalBalances(
+  tx: Pick<Db, 'select'>,
+  entryInputs: readonly { accountId: string; amount: bigint }[],
+): Promise<void> {
+  // Postgres returns lowercase UUIDs; normalise so lookups and ordering agree.
+  const delta = new Map<string, bigint>();
+  for (const e of entryInputs) {
+    const id = e.accountId.toLowerCase();
+    delta.set(id, (delta.get(id) ?? 0n) + e.amount);
+  }
+  const ids = [...delta.keys()].sort();
+
+  const locked = await tx
+    .select({
+      accountId: accounts.accountId,
+      type: accounts.type,
+      allowOverdraft: accounts.allowOverdraft,
+    })
+    .from(accounts)
+    .where(inArray(accounts.accountId, ids))
+    .orderBy(accounts.accountId)
+    .for('update');
+
+  const byId = new Map(locked.map((r) => [r.accountId, r]));
+  const missing = ids.find((id) => !byId.has(id));
+  if (missing !== undefined) throw new AccountNotFoundError(missing);
+
+  const sums = await tx
+    .select({
+      accountId: entries.accountId,
+      total: sql<string>`coalesce(sum(${entries.amount}), 0)::text`,
+    })
+    .from(entries)
+    .where(inArray(entries.accountId, ids))
+    .groupBy(entries.accountId);
+  const current = new Map(sums.map((r) => [r.accountId, BigInt(r.total)]));
+
+  for (const id of ids) {
+    const acct = byId.get(id)!;
+    if (acct.allowOverdraft) continue;
+    const prospective = (current.get(id) ?? 0n) + delta.get(id)!;
+    const debitNormal = acct.type === 'asset' || acct.type === 'expense';
+    if (debitNormal ? prospective < 0n : prospective > 0n) {
+      throw new NormalBalanceViolationError(id, prospective);
+    }
+  }
+}
+
+/**
  * Posts a balanced set of entries atomically, claiming the idempotency key in
  * the same database transaction. All validation runs before any DB call.
  * Zero-amount entries are allowed: they cannot unbalance a transaction.
@@ -128,6 +188,8 @@ export async function postTransaction(
     if (claimed.length === 0) {
       return resolveExistingKey(tx, idempotencyKey, requestHash);
     }
+
+    await enforceNormalBalances(tx, entryInputs);
 
     const transactionId = randomUUID();
     await tx.insert(transactions).values({
