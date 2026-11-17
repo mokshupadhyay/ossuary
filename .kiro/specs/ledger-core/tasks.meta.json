@@ -145,6 +145,25 @@
         "executionId": "9b8fe708-94b3-42ee-ada5-da220d753177",
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794888774897
+      },
+      {
+        "executionId": "cdc4daf3-dc75-4402-a8da-25e045d322c3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794910455822
+      }
+    ],
+    "6. Account management": [
+      {
+        "executionId": "cdc4daf3-dc75-4402-a8da-25e045d322c3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794910455874
+      }
+    ],
+    "7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`": [
+      {
+        "executionId": "cdc4daf3-dc75-4402-a8da-25e045d322c3",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794910472958
       }
     ]
   }

@@ -63,15 +63,15 @@ Conventions for every task:
 - [x] 5. Checkpoint - Ensure all tests pass
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Account management
-  - [-] 6.1 Implement `src/ledger/accounts.ts` (`createAccount`, `getAccount`) and `tests/unit/accounts.test.ts`
+- [x] 6. Account management
+  - [x] 6.1 Implement `src/ledger/accounts.ts` (`createAccount`, `getAccount`) and `tests/unit/accounts.test.ts`
     - `allowOverdraft` defaults to `false`; name length 1-255
     - Throw `MissingFieldError` (naming the field), `InvalidAccountTypeError`, and `DuplicateAccountError`; nothing is written on failure
     - Tests: create/retrieve round trip returns the full record; each missing field is rejected; an invalid type is rejected; a duplicate `accountId` is rejected; the default `allowOverdraft` is `false`
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
 - [ ] 7. postTransaction
-  - [ ] 7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`
+  - [-] 7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`
     - Pre-transaction validation: `MissingIdempotencyKeyError`, `InsufficientEntriesError` (fewer than 2 entries), `UnbalancedTransactionError` (`bigint` sum not 0n)
     - Inside one `db.transaction()` (READ COMMITTED, the default): compute the hash with `hashPayload`, then claim the key with `INSERT ... ON CONFLICT (key) DO NOTHING RETURNING key`
     - After a successful claim: insert the `transactions` row (with `idempotency_key`), bulk insert `entries`, `UPDATE idempotency_records SET status='completed', response=...`, and return `{ transactionId, entryIds }`
