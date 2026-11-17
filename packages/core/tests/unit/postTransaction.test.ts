@@ -213,3 +213,40 @@ describe('postTransaction replay / conflict / in-flight', () => {
     await expect(postTransaction(db, i)).rejects.toThrow(/malformed/);
   });
 });
+
+describe('postTransaction account id case normalisation', () => {
+  it('treats a retry with uppercased or mixed-case account ids as a replay', async () => {
+    const i = input();
+    const first = await postTransaction(db, i);
+    const before = await counts();
+
+    const upper = {
+      ...i,
+      entries: i.entries.map((e) => ({ ...e, accountId: e.accountId.toUpperCase() })),
+    };
+    expect(await postTransaction(db, upper)).toEqual(first);
+
+    const mixed = {
+      ...i,
+      entries: [
+        { ...i.entries[0]!, accountId: i.entries[0]!.accountId.toUpperCase() },
+        i.entries[1]!,
+      ],
+    };
+    expect(await postTransaction(db, mixed)).toEqual(first);
+
+    expect(await counts()).toEqual(before);
+  });
+
+  it('accepts uppercase ids on first post and stores lowercase account_id', async () => {
+    const i = input();
+    const upper = {
+      ...i,
+      entries: i.entries.map((e) => ({ ...e, accountId: e.accountId.toUpperCase() })),
+    };
+    await postTransaction(db, upper);
+    const ids = (await handle.db.select().from(entries)).map((e) => e.accountId).sort();
+    expect(ids).toEqual([a, b].sort());
+    expect(ids.every((id) => id === id.toLowerCase())).toBe(true);
+  });
+});

@@ -93,11 +93,10 @@ async function enforceNormalBalances(
   tx: Pick<Db, 'select'>,
   entryInputs: readonly { accountId: string; amount: bigint }[],
 ): Promise<void> {
-  // Postgres returns lowercase UUIDs; normalise so lookups and ordering agree.
+  // Callers pass lowercase-normalised account ids (see postTransaction).
   const delta = new Map<string, bigint>();
   for (const e of entryInputs) {
-    const id = e.accountId.toLowerCase();
-    delta.set(id, (delta.get(id) ?? 0n) + e.amount);
+    delta.set(e.accountId, (delta.get(e.accountId) ?? 0n) + e.amount);
   }
   const ids = [...delta.keys()].sort();
 
@@ -172,8 +171,15 @@ export async function postTransaction(
   const sum = entryInputs.reduce((s, e) => s + e.amount, 0n);
   if (sum !== 0n) throw new UnbalancedTransactionError(sum);
 
+  // Normalise once: Postgres stores UUIDs lowercase, so hashing, locking,
+  // balance checks and inserts must all see the same canonical form.
+  const normalized = entryInputs.map((e) => ({
+    accountId: e.accountId.toLowerCase(),
+    amount: e.amount,
+  }));
+
   const requestHash = hashPayload({
-    entries: entryInputs.map((e) => ({ accountId: e.accountId, amount: e.amount })),
+    entries: normalized,
     kind,
     paymentId: paymentId ?? null,
   });
@@ -189,7 +195,7 @@ export async function postTransaction(
       return resolveExistingKey(tx, idempotencyKey, requestHash);
     }
 
-    await enforceNormalBalances(tx, entryInputs);
+    await enforceNormalBalances(tx, normalized);
 
     const transactionId = randomUUID();
     await tx.insert(transactions).values({
@@ -199,7 +205,7 @@ export async function postTransaction(
       idempotencyKey,
     });
 
-    const rows = entryInputs.map((e) => ({
+    const rows = normalized.map((e) => ({
       id: randomUUID(),
       transactionId,
       accountId: e.accountId,

@@ -194,6 +194,13 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794923778328
       }
+    ],
+    "8.1 Implement `src/ledger/balance.ts` and `tests/unit/balance.test.ts`": [
+      {
+        "executionId": "135c62e2-b92a-48db-b03c-fdaf6aff1e3e",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794924255755
+      }
     ]
   }
 }

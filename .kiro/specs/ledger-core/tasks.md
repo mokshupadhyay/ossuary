@@ -103,7 +103,7 @@ Conventions for every task:
     - _Requirements: 2.4_
 
 - [ ] 8. Derived balance
-  - [ ] 8.1 Implement `src/ledger/balance.ts` and `tests/unit/balance.test.ts`
+  - [x] 8.1 Implement `src/ledger/balance.ts` and `tests/unit/balance.test.ts`
     - Check the account exists (`AccountNotFoundError` if not), then `SELECT COALESCE(SUM(amount), 0)` and return a `bigint`. No transaction wrapper
     - Tests: 0n for an account with no entries; the sum is correct after several posts; an unknown account throws; a balance read after a new post reflects it immediately
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
