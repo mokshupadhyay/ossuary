@@ -234,6 +234,18 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794928120755
       }
+    ],
+    "10.1 Implement `src/ledger/refund.ts` and `tests/unit/refund.test.ts`": [
+      {
+        "executionId": "bbb61834-bcc9-453e-96e2-8918cd8c9cd1",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794928650179
+      },
+      {
+        "executionId": "bbb61834-bcc9-453e-96e2-8918cd8c9cd1",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794929305628
+      }
     ]
   }
 }

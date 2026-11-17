@@ -1,25 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import type { Db, Tx } from '../db/client.js';
 import {
   AccountNotFoundError,
-  DuplicateKeyError,
-  IdempotencyWindowExpiredError,
   InsufficientEntriesError,
   InvalidFieldError,
-  KeyInFlightError,
   MissingIdempotencyKeyError,
   NormalBalanceViolationError,
   UnbalancedTransactionError,
 } from '../errors/index.js';
-import { accounts, entries, idempotencyRecords, transactions } from '../schema/index.js';
+import { accounts, entries, transactions } from '../schema/index.js';
 import type { PostTransactionInput } from '../types/index.js';
 import { hashPayload } from './hash.js';
+import { claimOrReplay, completeKey, type StoredResponse } from './idempotency.js';
 
-export interface PostTransactionResult {
-  transactionId: string;
-  entryIds: string[];
-}
+export type PostTransactionResult = StoredResponse;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KINDS: readonly string[] = ['capture', 'refund', 'transfer'];
@@ -28,55 +23,6 @@ function assertUuid(field: string, value: unknown): asserts value is string {
   if (typeof value !== 'string' || !UUID_RE.test(value)) {
     throw new InvalidFieldError(field, 'must be a UUID');
   }
-}
-
-function parseStoredResponse(key: string, value: unknown): PostTransactionResult {
-  const r = value as Partial<PostTransactionResult> | null;
-  if (
-    r === null ||
-    typeof r !== 'object' ||
-    typeof r.transactionId !== 'string' ||
-    !Array.isArray(r.entryIds) ||
-    !r.entryIds.every((id) => typeof id === 'string')
-  ) {
-    throw new Error(`Stored response for idempotency key ${key} is malformed`);
-  }
-  return { transactionId: r.transactionId, entryIds: r.entryIds };
-}
-
-/**
- * Called when the key claim inserted no row, i.e. the key already exists.
- * Writes nothing; it only reads and either returns the stored response or throws.
- *
- * Concurrency (Req 3.5): under READ COMMITTED, INSERT ... ON CONFLICT DO NOTHING
- * waits for a concurrent uncommitted insert of the same key. If that commits,
- * the claim returns no row and the SELECT below (a new statement snapshot) sees
- * the committed `completed` record. If it rolls back, our INSERT claims the key.
- * Claim and completion share one DB transaction, so a committed `in_progress`
- * row should never exist; KeyInFlightError is a defensive branch.
- */
-async function resolveExistingKey(
-  tx: Pick<Db, 'select'>,
-  key: string,
-  requestHash: string,
-): Promise<PostTransactionResult> {
-  const [existing] = await tx
-    .select({
-      requestHash: idempotencyRecords.requestHash,
-      status: idempotencyRecords.status,
-      response: idempotencyRecords.response,
-      expired: sql<boolean>`${idempotencyRecords.createdAt} < now() - interval '24 hours'`,
-    })
-    .from(idempotencyRecords)
-    .where(eq(idempotencyRecords.key, key));
-
-  if (!existing) {
-    throw new Error(`Idempotency key ${key} conflicted on insert but no record was found`);
-  }
-  if (existing.requestHash !== requestHash) throw new DuplicateKeyError(key);
-  if (existing.status === 'in_progress') throw new KeyInFlightError(key);
-  if (existing.expired) throw new IdempotencyWindowExpiredError(key);
-  return parseStoredResponse(key, existing.response);
 }
 
 /**
@@ -236,15 +182,8 @@ export async function postTransaction(
   });
 
   return db.transaction(async (tx) => {
-    const claimed = await tx
-      .insert(idempotencyRecords)
-      .values({ key: idempotencyKey, requestHash, status: 'in_progress' })
-      .onConflictDoNothing({ target: idempotencyRecords.key })
-      .returning({ key: idempotencyRecords.key });
-
-    if (claimed.length === 0) {
-      return resolveExistingKey(tx, idempotencyKey, requestHash);
-    }
+    const claim = await claimOrReplay(tx, idempotencyKey, requestHash);
+    if (!claim.claimed) return claim.response;
 
     const response = await writeTransaction(
       tx,
@@ -253,10 +192,7 @@ export async function postTransaction(
       normalizedPaymentId,
       normalized,
     );
-    await tx
-      .update(idempotencyRecords)
-      .set({ status: 'completed', response })
-      .where(eq(idempotencyRecords.key, idempotencyKey));
+    await completeKey(tx, idempotencyKey, response);
 
     return response;
   });

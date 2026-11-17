@@ -112,7 +112,7 @@ Conventions for every task:
   - Run `vitest --run`. Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Refund
-  - [ ] 10.1 Implement `src/ledger/refund.ts` and `tests/unit/refund.test.ts`
+  - [x] 10.1 Implement `src/ledger/refund.ts` and `tests/unit/refund.test.ts`
     - Validate `amount > 0n` (`InvalidRefundAmountError`) and a present key (`MissingIdempotencyKeyError`) before opening a transaction
     - Open `db.transaction()` and claim the idempotency key first, using the same `ON CONFLICT DO NOTHING RETURNING` pattern, with the same replay, `DuplicateKeyError`, expiry, and in-flight handling as `postTransaction`. Factor the claim and replay logic into a shared helper used by both functions
     - Lock capture transactions for the payment with `FOR UPDATE`; throw `PaymentNotFoundError` if none. Lock the existing refund transactions for the payment as well
