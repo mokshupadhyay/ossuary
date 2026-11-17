@@ -71,7 +71,7 @@ Conventions for every task:
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
 - [ ] 7. postTransaction
-  - [-] 7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`
+  - [x] 7.1 Implement the core `postTransaction` write path in `src/ledger/postTransaction.ts`
     - Pre-transaction validation: `MissingIdempotencyKeyError`, `InsufficientEntriesError` (fewer than 2 entries), `UnbalancedTransactionError` (`bigint` sum not 0n)
     - Inside one `db.transaction()` (READ COMMITTED, the default): compute the hash with `hashPayload`, then claim the key with `INSERT ... ON CONFLICT (key) DO NOTHING RETURNING key`
     - After a successful claim: insert the `transactions` row (with `idempotency_key`), bulk insert `entries`, `UPDATE idempotency_records SET status='completed', response=...`, and return `{ transactionId, entryIds }`
