@@ -170,6 +170,18 @@
         "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
         "timestamp": 1794911220439
       }
+    ],
+    "7.2 Add replay, conflict, and in-flight handling to `postTransaction`": [
+      {
+        "executionId": "548b04f6-0d81-4533-aa2e-f114fb95290a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794919880154
+      },
+      {
+        "executionId": "548b04f6-0d81-4533-aa2e-f114fb95290a",
+        "chatSessionId": "sess_c154bc70-af17-4874-89bc-98430878c8be",
+        "timestamp": 1794920390741
+      }
     ]
   }
 }

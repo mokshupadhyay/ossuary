@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAccount } from '../../src/ledger/accounts.js';
 import { postTransaction } from '../../src/ledger/postTransaction.js';
+import { hashPayload } from '../../src/ledger/hash.js';
 import {
+  DuplicateKeyError,
+  IdempotencyWindowExpiredError,
+  KeyInFlightError,
   InsufficientEntriesError,
   InvalidFieldError,
   MissingIdempotencyKeyError,
@@ -120,5 +124,91 @@ describe('postTransaction', () => {
     const ok = await postTransaction(db, { ...input(10n), idempotencyKey: key });
     expect(ok.entryIds).toHaveLength(2);
     expect(await counts()).toEqual({ keys: 1, txs: 1, entries: 2 });
+  });
+});
+
+describe('postTransaction replay / conflict / in-flight', () => {
+  it('replays return a deep-equal response and write nothing, repeatedly', async () => {
+    const i = input();
+    const first = await postTransaction(db, i);
+    const before = await counts();
+    for (let n = 0; n < 3; n++) {
+      expect(await postTransaction(db, i)).toEqual(first);
+    }
+    expect(await counts()).toEqual(before);
+  });
+
+  it('treats reordered object keys as the same payload', async () => {
+    const i = input();
+    const first = await postTransaction(db, i);
+    const reordered = {
+      entries: i.entries.map((e) => ({ amount: e.amount, accountId: e.accountId })),
+      kind: i.kind,
+      idempotencyKey: i.idempotencyKey,
+    };
+    expect(await postTransaction(db, reordered)).toEqual(first);
+    expect(await counts()).toEqual({ keys: 1, txs: 1, entries: 2 });
+  });
+
+  it('throws DuplicateKeyError for a changed amount or kind and writes nothing', async () => {
+    const i = input(100n);
+    await postTransaction(db, i);
+    const before = await counts();
+    await expect(
+      postTransaction(db, { ...i, entries: [{ accountId: a, amount: 101n }, { accountId: b, amount: -101n }] }),
+    ).rejects.toBeInstanceOf(DuplicateKeyError);
+    await expect(postTransaction(db, { ...i, kind: 'capture' })).rejects.toBeInstanceOf(
+      DuplicateKeyError,
+    );
+    expect(await counts()).toEqual(before);
+  });
+
+  it('enforces the 24h window using the database clock', async () => {
+    const old = input();
+    const oldRes = await postTransaction(db, old);
+    const recent = input(7n);
+    const recentRes = await postTransaction(db, recent);
+    await handle.client.query(
+      `UPDATE idempotency_records SET created_at = now() - interval '24 hours 1 minute' WHERE key = $1`,
+      [old.idempotencyKey],
+    );
+    await handle.client.query(
+      `UPDATE idempotency_records SET created_at = now() - interval '23 hours 59 minutes' WHERE key = $1`,
+      [recent.idempotencyKey],
+    );
+    const before = await counts();
+    await expect(postTransaction(db, old)).rejects.toBeInstanceOf(IdempotencyWindowExpiredError);
+    expect(await postTransaction(db, recent)).toEqual(recentRes);
+    expect(oldRes.entryIds).toHaveLength(2);
+    expect(await counts()).toEqual(before);
+  });
+
+  it('throws KeyInFlightError for a matching in_progress record, DuplicateKeyError otherwise', async () => {
+    const i = input();
+    const hash = hashPayload({
+      entries: i.entries.map((e) => ({ accountId: e.accountId, amount: e.amount })),
+      kind: i.kind,
+      paymentId: null,
+    });
+    await handle.client.query(
+      `INSERT INTO idempotency_records (key, request_hash, status) VALUES ($1, $2, 'in_progress')`,
+      [i.idempotencyKey, hash],
+    );
+    await expect(postTransaction(db, i)).rejects.toBeInstanceOf(KeyInFlightError);
+
+    const j = input();
+    await handle.client.query(
+      `INSERT INTO idempotency_records (key, request_hash, status) VALUES ($1, 'other', 'in_progress')`,
+      [j.idempotencyKey],
+    );
+    await expect(postTransaction(db, j)).rejects.toBeInstanceOf(DuplicateKeyError);
+    expect(await counts()).toEqual({ keys: 2, txs: 0, entries: 0 });
+  });
+
+  it('rejects a malformed stored response', async () => {
+    const i = input();
+    await postTransaction(db, i);
+    await handle.client.query(`UPDATE idempotency_records SET response = '{"x":1}'::jsonb`);
+    await expect(postTransaction(db, i)).rejects.toThrow(/malformed/);
   });
 });

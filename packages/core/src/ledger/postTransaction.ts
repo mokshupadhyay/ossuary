@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import {
+  DuplicateKeyError,
+  IdempotencyWindowExpiredError,
   InsufficientEntriesError,
   InvalidFieldError,
+  KeyInFlightError,
   MissingIdempotencyKeyError,
   UnbalancedTransactionError,
 } from '../errors/index.js';
@@ -23,6 +26,55 @@ function assertUuid(field: string, value: unknown): asserts value is string {
   if (typeof value !== 'string' || !UUID_RE.test(value)) {
     throw new InvalidFieldError(field, 'must be a UUID');
   }
+}
+
+function parseStoredResponse(key: string, value: unknown): PostTransactionResult {
+  const r = value as Partial<PostTransactionResult> | null;
+  if (
+    r === null ||
+    typeof r !== 'object' ||
+    typeof r.transactionId !== 'string' ||
+    !Array.isArray(r.entryIds) ||
+    !r.entryIds.every((id) => typeof id === 'string')
+  ) {
+    throw new Error(`Stored response for idempotency key ${key} is malformed`);
+  }
+  return { transactionId: r.transactionId, entryIds: r.entryIds };
+}
+
+/**
+ * Called when the key claim inserted no row, i.e. the key already exists.
+ * Writes nothing; it only reads and either returns the stored response or throws.
+ *
+ * Concurrency (Req 3.5): under READ COMMITTED, INSERT ... ON CONFLICT DO NOTHING
+ * waits for a concurrent uncommitted insert of the same key. If that commits,
+ * the claim returns no row and the SELECT below (a new statement snapshot) sees
+ * the committed `completed` record. If it rolls back, our INSERT claims the key.
+ * Claim and completion share one DB transaction, so a committed `in_progress`
+ * row should never exist; KeyInFlightError is a defensive branch.
+ */
+async function resolveExistingKey(
+  tx: Pick<Db, 'select'>,
+  key: string,
+  requestHash: string,
+): Promise<PostTransactionResult> {
+  const [existing] = await tx
+    .select({
+      requestHash: idempotencyRecords.requestHash,
+      status: idempotencyRecords.status,
+      response: idempotencyRecords.response,
+      expired: sql<boolean>`${idempotencyRecords.createdAt} < now() - interval '24 hours'`,
+    })
+    .from(idempotencyRecords)
+    .where(eq(idempotencyRecords.key, key));
+
+  if (!existing) {
+    throw new Error(`Idempotency key ${key} conflicted on insert but no record was found`);
+  }
+  if (existing.requestHash !== requestHash) throw new DuplicateKeyError(key);
+  if (existing.status === 'in_progress') throw new KeyInFlightError(key);
+  if (existing.expired) throw new IdempotencyWindowExpiredError(key);
+  return parseStoredResponse(key, existing.response);
 }
 
 /**
@@ -74,8 +126,7 @@ export async function postTransaction(
       .returning({ key: idempotencyRecords.key });
 
     if (claimed.length === 0) {
-      // PLACEHOLDER: replay / conflict / in-flight handling is task 7.2.
-      throw new Error('idempotency replay handling not implemented (task 7.2)');
+      return resolveExistingKey(tx, idempotencyKey, requestHash);
     }
 
     const transactionId = randomUUID();

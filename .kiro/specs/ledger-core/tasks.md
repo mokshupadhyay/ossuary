@@ -78,7 +78,7 @@ Conventions for every task:
     - Tests in `tests/unit/postTransaction.test.ts`: valid post persists the transaction, entries, and a `completed` idempotency record; each validation error writes nothing; a failure mid-write (for example an entry on an unknown account that trips the FK) rolls everything back, including the key claim
     - _Requirements: 2.1, 2.2, 2.3, 2.6, 3.1, 3.6, 3.7, 7.2_
 
-  - [ ] 7.2 Add replay, conflict, and in-flight handling to `postTransaction`
+  - [x] 7.2 Add replay, conflict, and in-flight handling to `postTransaction`
     - When the claim returns no row, `SELECT` the existing record
     - `completed` with a matching hash and age of at most 24h returns the stored response with no writes; age over 24h throws `IdempotencyWindowExpiredError`
     - A different hash throws `DuplicateKeyError`
