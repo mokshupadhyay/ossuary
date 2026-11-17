@@ -175,7 +175,7 @@ Conventions for every task:
     - Tag: `// Feature: ledger-core, Property 6`
     - **Validates: Requirements 7.4, 7.1, 7.3, 9.3e**
 
-- [ ] 13. Final checkpoint - Ensure all tests pass
+- [x] 13. Final checkpoint - Ensure all tests pass
   - Run `vitest --run` and confirm it exits in under 120 seconds. Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
