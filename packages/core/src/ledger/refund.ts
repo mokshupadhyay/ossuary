@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { Db } from '../db/client.js';
+import type { Db, Tx } from '../db/client.js';
 import {
   InvalidFieldError,
   InvalidRefundAmountError,
@@ -82,9 +82,26 @@ export function allocateRefund(
  * second waits until the first commits, then reads its refund row.
  *
  * The postTransaction callerTx path skips the request-hash check and the
- * `completed` update, so this function does both itself.
+ * `completed` update, so this function does both itself when it owns the
+ * transaction.
+ *
+ * Optional `callerTx`: an open Drizzle transaction owned by the caller (used by
+ * the webhook handler). In that mode this function does NOT open a
+ * transaction, hash the request, claim the key, resolve existing keys, or mark
+ * the record `completed`. Contract, mirroring `postTransaction`: the caller
+ * must already have claimed `idempotencyKey` on the same `callerTx` (the
+ * refund's `transactions.idempotency_key` is a foreign key to it), and the
+ * caller is responsible for the request-hash check and for setting the final
+ * `completed` status. Validation, the payment-row locks, the cap check, the
+ * allocation and the entry writes all still run, on `callerTx`. A
+ * `RefundCapExceededError` leaves `callerTx` open; wrap the call in a savepoint
+ * (`callerTx.transaction(...)`) to roll back only the refund's own work.
  */
-export async function refund(db: Db, input: RefundInput): Promise<PostTransactionResult> {
+export async function refund(
+  db: Db,
+  input: RefundInput,
+  callerTx?: Tx,
+): Promise<PostTransactionResult> {
   const { idempotencyKey, paymentId, amount } = (input ?? {}) as Partial<RefundInput>;
 
   if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
@@ -99,6 +116,10 @@ export async function refund(db: Db, input: RefundInput): Promise<PostTransactio
   if (amount <= 0n) throw new InvalidRefundAmountError(amount);
 
   const pid = paymentId.toLowerCase();
+
+  // Caller-owned transaction: the caller has already claimed the key.
+  if (callerTx) return refundOnTx(callerTx, db, pid, amount, idempotencyKey);
+
   // `op` keeps a refund request from ever hashing like a postTransaction payload.
   const requestHash = hashPayload({ op: 'refund', paymentId: pid, amount });
 
@@ -106,50 +127,65 @@ export async function refund(db: Db, input: RefundInput): Promise<PostTransactio
     const claim = await claimOrReplay(tx, idempotencyKey, requestHash);
     if (!claim.claimed) return claim.response;
 
-    const locked = await tx
-      .select({ id: transactions.id, kind: transactions.kind })
-      .from(transactions)
-      .where(and(eq(transactions.paymentId, pid), inArray(transactions.kind, ['capture', 'refund'])))
-      .orderBy(asc(transactions.id))
-      .for('update');
-    if (!locked.some((t) => t.kind === 'capture')) throw new PaymentNotFoundError(pid);
-
-    // New statement after the locks: sees everything committed by prior lock holders.
-    const rows = await tx
-      .select({
-        kind: transactions.kind,
-        accountId: entries.accountId,
-        net: sql<string>`sum(${entries.amount})::text`,
-        positive: sql<string>`coalesce(sum(case when ${entries.amount} > 0 then ${entries.amount} else 0 end), 0)::text`,
-      })
-      .from(entries)
-      .innerJoin(transactions, eq(entries.transactionId, transactions.id))
-      .where(and(eq(transactions.paymentId, pid), inArray(transactions.kind, ['capture', 'refund'])))
-      .groupBy(transactions.kind, entries.accountId);
-
-    let captured = 0n;
-    let alreadyRefunded = 0n;
-    const outstanding = new Map<string, bigint>();
-    for (const r of rows) {
-      if (r.kind === 'capture') captured += BigInt(r.positive);
-      else alreadyRefunded += BigInt(r.positive);
-      outstanding.set(r.accountId, (outstanding.get(r.accountId) ?? 0n) + BigInt(r.net));
-    }
-
-    const remaining = captured - alreadyRefunded;
-    if (amount > remaining) throw new RefundCapExceededError(amount, remaining);
-
-    const response = await postTransaction(
-      db,
-      {
-        idempotencyKey,
-        kind: 'refund',
-        paymentId: pid,
-        entries: allocateRefund(outstanding, amount),
-      },
-      tx,
-    );
+    const response = await refundOnTx(tx, db, pid, amount, idempotencyKey);
     await completeKey(tx, idempotencyKey, response);
     return response;
   });
+}
+
+/**
+ * The refund itself, on whatever transaction it is given: lock the payment's
+ * capture and refund rows, compute the cap, allocate, and post. Assumes the
+ * idempotency key is already claimed on `tx`. Does not mark it completed.
+ */
+async function refundOnTx(
+  tx: Tx,
+  db: Db,
+  pid: string,
+  amount: bigint,
+  idempotencyKey: string,
+): Promise<PostTransactionResult> {
+  const locked = await tx
+    .select({ id: transactions.id, kind: transactions.kind })
+    .from(transactions)
+    .where(and(eq(transactions.paymentId, pid), inArray(transactions.kind, ['capture', 'refund'])))
+    .orderBy(asc(transactions.id))
+    .for('update');
+  if (!locked.some((t) => t.kind === 'capture')) throw new PaymentNotFoundError(pid);
+
+  // New statement after the locks: sees everything committed by prior lock holders.
+  const rows = await tx
+    .select({
+      kind: transactions.kind,
+      accountId: entries.accountId,
+      net: sql<string>`sum(${entries.amount})::text`,
+      positive: sql<string>`coalesce(sum(case when ${entries.amount} > 0 then ${entries.amount} else 0 end), 0)::text`,
+    })
+    .from(entries)
+    .innerJoin(transactions, eq(entries.transactionId, transactions.id))
+    .where(and(eq(transactions.paymentId, pid), inArray(transactions.kind, ['capture', 'refund'])))
+    .groupBy(transactions.kind, entries.accountId);
+
+  let captured = 0n;
+  let alreadyRefunded = 0n;
+  const outstanding = new Map<string, bigint>();
+  for (const r of rows) {
+    if (r.kind === 'capture') captured += BigInt(r.positive);
+    else alreadyRefunded += BigInt(r.positive);
+    outstanding.set(r.accountId, (outstanding.get(r.accountId) ?? 0n) + BigInt(r.net));
+  }
+
+  const remaining = captured - alreadyRefunded;
+  if (amount > remaining) throw new RefundCapExceededError(amount, remaining);
+
+  return postTransaction(
+    db,
+    {
+      idempotencyKey,
+      kind: 'refund',
+      paymentId: pid,
+      entries: allocateRefund(outstanding, amount),
+    },
+    tx,
+  );
 }
