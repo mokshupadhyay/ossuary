@@ -427,7 +427,7 @@ Let `now = clock.now()`. Then:
    FOR UPDATE SKIP LOCKED
    ```
    For each row:
-   - If `attempts >= maxAttempts`, set `status = 'dead'` and don't send it. This is the crash-loop guard from Q2.
+   - If `attempts >= maxAttempts`, set `status = 'dead'` and don't send it. This is the crash-loop guard from D2: the previous claimed attempt was interrupted before its result was recorded.
    - Otherwise set `attempts = attempts + 1`, `lease_until = now + leaseMs`, and `claim_token = randomUUID()`.
 
    Commit. `SKIP LOCKED` lets concurrent workers pick disjoint rows, and the lease keeps the rows exclusive after commit (Req 9.1 and 9.2).
@@ -472,7 +472,7 @@ The generated age ranges from 301 seconds to about 10 years, with extra weight n
 
 ### Property 2: Delivery order and duplicates don't change the outcome
 
-*For any* valid rail history (Q1) over 1–4 payments, where each payment has an optional `pending`, at most one capture, and refunds summing to no more than the capture, plus optional unknown-type events, and *for any* delivery sequence that is a permutation of those events with up to 2× duplicate deliveries, interleaved across payments:
+*For any* Valid_Rail_History (D1) over 1–4 payments, where each payment has an optional `pending`, at most one capture, and refunds summing to no more than the capture, plus optional unknown-type events, and *for any* delivery sequence that is a permutation of those events with up to 2× duplicate deliveries, interleaved across payments:
 
 - every delivery SHALL return `200`;
 - the final clearing and revenue balances, every payment's `payment_states.status`, and every event's inbox status SHALL equal those from delivering each distinct event once in natural order;
@@ -489,10 +489,10 @@ Refunds that arrive before their capture are included, so the parking path is ex
 - crash points during event application are before each SQL statement of `applyEvent`, before commit, and after commit;
 - crash points during the worker are before claim, after the claim commits, after send, and after the result is recorded.
 
-After the rail retries every non-`2xx` delivery, and the worker runs with the clock advanced past every lease and backoff until no message is due:
+After the rail retries every non-`2xx` delivery, and the worker runs with the clock advanced past every lease and backoff until no message is due, the worker SHALL reach that point within `messages × maxAttempts + 1` rounds (a worker that never drains, such as one that retries a crash loop forever, fails the property), and then:
 
 - every event whose ledger change committed SHALL have exactly one outbox message;
-- each such message SHALL be `sent`, with the sender called at least once with its idempotency key, or `dead`, with `attempts = maxAttempts` and the sender called exactly `maxAttempts` times;
+- each such message SHALL be `sent`, with the sender called at least once with its idempotency key, or `dead`, with `attempts = maxAttempts` (counted at claim, D2) and the sender called at most `maxAttempts` times, and exactly `maxAttempts` times when no crash interrupted one of its attempts;
 - no outbox message SHALL exist for an event without a committed ledger change;
 - no message SHALL ever be deleted.
 
@@ -506,7 +506,7 @@ Each property is run against these deliberate breaks before its task is marked d
 |---|---|
 | 1 | Skip the timestamp check. Or widen the tolerance to 300,000 s. |
 | 2 | Drop the inbox dedupe (`ON CONFLICT` → plain insert with a fresh internal id). Or apply refunds to an uncaptured payment as `rejected` instead of `parked`. Or let `pending` overwrite `captured`. |
-| 3 | Write the outbox message in a separate transaction after commit. Or mark `sent` before calling the sender. Or skip the lease check in the claim query. |
+| 3 | Write the outbox message in a separate transaction after commit. Or mark `sent` before calling the sender. Or skip the lease check in the claim query. Or count the attempt on failure instead of at claim (D2), which never drains under a crash-every-send schedule. |
 
 ---
 
@@ -514,7 +514,7 @@ Each property is run against these deliberate breaks before its task is marked d
 
 ### Tooling
 
-- Vitest, fast-check and pglite, as in `ledger-core`. The shared `runConfig` provides modest `numRuns` and the 45-second interrupt-as-failure bound.
+- Vitest, fast-check and pglite, as in `ledger-core`. The shared `runConfig` from `tests/helpers/arbitraries.ts` provides the 45-second interrupt-as-failure bound. Every webhooks-outbox property runs **at least 25 cases** in the default `vitest --run` (Requirement 12.2); the run counts live in one `WEBHOOK_RUNS` constant whose values a unit test asserts are all ≥ 25.
 - Each property file uses one migrated database, with fresh accounts, payment ids and event ids per run (the `ledger-core` pattern).
 - **Fake clock** (`tests/helpers/clock.ts`): starts at a fixed instant and only moves when `advance(ms)` is called.
 - **Fake sender** (`tests/helpers/sender.ts`): takes a scripted list of outcomes and records every call (key, topic, payload) for assertions.
@@ -554,4 +554,6 @@ Each test is tagged `// Feature: webhooks-outbox, Property N` with its requireme
 
 ### Time budget
 
-The `ledger-core` suite takes about 30–37 s. The new unit files use one database per file (`beforeAll`), not one per test, which is the main cost in the existing unit tests. That keeps the full `vitest --run` well under 120 s (Requirement 12.7). Each property's run count is set from measured cost when it is implemented.
+The `ledger-core` suite takes about 30–37 s. The new unit files use one database per file (`beforeAll`), not one per test, which is the main cost in the existing unit tests. That keeps the full `vitest --run` well under 120 s (Requirement 12.7).
+
+Each property runs at least 25 cases. Measured `ledger-core` costs give the estimate: a post is about 3 ms and a fresh migrated pglite about 1.8 s. Property 1 does no writes, so 100 cases cost well under a second. Property 2 delivers at most about 60 events plus a reference run of about 20 per case, so 25 cases are roughly 10 s. Property 3 is the most expensive per case, because each case replays deliveries and worker rounds after crashes, so it bounds a case to 1–2 payments and a handful of crash points. The run counts are confirmed by timing the full suite after each property task. If the full run approaches 90 s, the fix is to cut per-case size, not to drop below 25 cases.
