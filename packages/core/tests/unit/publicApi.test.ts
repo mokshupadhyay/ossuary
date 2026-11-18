@@ -24,6 +24,7 @@ const errorExports = [
   'InvalidAccountTypeError',
   'InvalidFieldError',
   'InvalidRefundAmountError',
+  'InvalidWebhookPayloadError',
   'KeyInFlightError',
   'LedgerError',
   'MissingFieldError',

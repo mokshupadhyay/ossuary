@@ -24,6 +24,11 @@ const cases: Array<[string, E.LedgerError, Record<string, unknown>]> = [
   ['MissingIdempotencyKeyError', new E.MissingIdempotencyKeyError(), {}],
   ['InvalidRefundAmountError', new E.InvalidRefundAmountError(0n), { amount: 0n }],
   ['KeyInFlightError', new E.KeyInFlightError('k'), { key: 'k' }],
+  [
+    'InvalidWebhookPayloadError',
+    new E.InvalidWebhookPayloadError('amount', 'bad'),
+    { field: 'amount', reason: 'bad' },
+  ],
 ];
 
 describe('ledger errors', () => {

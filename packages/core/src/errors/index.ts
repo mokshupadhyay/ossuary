@@ -105,3 +105,13 @@ export class KeyInFlightError extends LedgerError {
     super(`Idempotency key is in flight, retry later: ${key}`);
   }
 }
+
+/** A verified webhook body failed validation. `reason` is fixed text and never echoes the body. */
+export class InvalidWebhookPayloadError extends LedgerError {
+  constructor(
+    public readonly field: string,
+    public readonly reason: string,
+  ) {
+    super(`Invalid webhook payload, ${field}: ${reason}`);
+  }
+}
