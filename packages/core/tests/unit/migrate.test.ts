@@ -40,7 +40,7 @@ describe('runMigrations', () => {
     const applied = await db.execute(
       sql`SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations`,
     );
-    expect((applied.rows[0] as { n: number }).n).toBe(5);
+    expect((applied.rows[0] as { n: number }).n).toBe(8);
 
     await client.close();
   });
