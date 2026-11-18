@@ -23,8 +23,8 @@ Conventions for every task:
 
 ## Tasks
 
-- [ ] 1. Ledger change: refund on a caller transaction
-  - [ ] 1.1 Add the optional `callerTx` parameter to `refund` in `src/ledger/refund.ts`
+- [x] 1. Ledger change: refund on a caller transaction
+  - [x] 1.1 Add the optional `callerTx` parameter to `refund` in `src/ledger/refund.ts`
     - Move the body of today's transaction callback (lock the payment's rows, compute the cap, allocate, post) into an internal `refundOnTx(tx, db, paymentId, amount, idempotencyKey)`
     - Without `callerTx`: keep today's behavior exactly (validate, hash, open the transaction, `claimOrReplay`, `refundOnTx`, `completeKey`)
     - With `callerTx`: validate and lowercase as today, then run `refundOnTx` on `callerTx`. Leave the key claim, the request-hash check and the `completed` update to the caller, and say so in the JSDoc, mirroring `postTransaction`
@@ -35,8 +35,8 @@ Conventions for every task:
     - Every existing `refund.test.ts` and `refundCap.property.ts` test must pass unchanged
     - _Requirements: 7.1, 7.2, 7.3, 6.4_
 
-- [ ] 2. Schema and migrations
-  - [ ] 2.1 Add the Drizzle schema and migrations `0005`–`0007`
+- [x] 2. Schema and migrations
+  - [x] 2.1 Add the Drizzle schema and migrations `0005`–`0007`
     - Create `src/schema/webhookEvents.ts`, `paymentStates.ts` and `outboxMessages.ts` exactly as in design.md, and re-export them from `src/schema/index.ts`
     - Generate one migration per table with drizzle-kit, in dependency order: `0005_create_webhook_events`, `0006_create_payment_states`, `0007_create_outbox_messages`. Do not hand-edit snapshots
     - Update the count assertions that pin the migration set, keeping every check they make:
@@ -53,8 +53,8 @@ Conventions for every task:
       - that no new column is named like `balance` or `total`.
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 3. Keys, verification and parsing
-  - [ ] 3.1 Implement `src/webhooks/keys.ts` and `tests/unit/keys.test.ts`
+- [x] 3. Keys, verification and parsing
+  - [x] 3.1 Implement `src/webhooks/keys.ts` and `tests/unit/keys.test.ts`
     - `uuidV5(namespace, name)` per RFC 4122 §4.3 with SHA-1 from `node:crypto`, plus `ledgerKeyFor(eventId)` and `outboxKeyFor(eventId, topic)` with the two namespaces in design.md
     - Tests:
       - `uuidV5(DNS, 'www.example.com') === '2ed6657d-e927-568b-95e1-2665a8aea6a2'`;
@@ -64,7 +64,7 @@ Conventions for every task:
       - non-ASCII event ids are hashed as UTF-8.
     - _Requirements: 6.4, 8.3_
 
-  - [ ] 3.2 Implement `src/webhooks/verify.ts` (`verifyWebhook`, `signWebhook`, `Clock`) and `tests/unit/verify.test.ts`
+  - [x] 3.2 Implement `src/webhooks/verify.ts` (`verifyWebhook`, `signWebhook`, `Clock`) and `tests/unit/verify.test.ts`
     - Run the checks in the order design.md gives:
       1. read the headers `ossuary-timestamp` and `ossuary-signature`, case-insensitively;
       2. check the signature is `/^[0-9a-f]{64}$/` and the timestamp is `/^[0-9]{1,15}$/`;
@@ -82,7 +82,7 @@ Conventions for every task:
       - string and `Uint8Array` bodies give the same signature.
     - _Requirements: 1.1, 1.2, 1.3, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [ ] 3.3 Implement `src/webhooks/parse.ts`, add `InvalidWebhookPayloadError(field, reason)` to `src/errors/index.ts`, and write `tests/unit/parse.test.ts`
+  - [x] 3.3 Implement `src/webhooks/parse.ts`, add `InvalidWebhookPayloadError(field, reason)` to `src/errors/index.ts`, and write `tests/unit/parse.test.ts`
     - Follow design.md:
       - `id` is 1–255 characters, and `paymentId` is a UUID, lowercased;
       - `asset` must equal the ledger asset exactly;
@@ -174,7 +174,7 @@ Conventions for every task:
     - _Requirements: 6.3, 6.5, 6.6, 1.6, 10.4_
 
 - [ ] 6. Outbox worker
-  - [ ] 6.1 Implement `src/outbox/backoff.ts` and `tests/unit/backoff.test.ts`
+  - [x] 6.1 Implement `src/outbox/backoff.ts` and `tests/unit/backoff.test.ts`
     - `nextDelayMs(attempts, base, max) = min(max, base × 2^(attempts − 1))`. Compute it with `bigint` or a capped loop so a large attempt count cannot overflow to `Infinity`
     - Tests: exact values for attempts 1–5; the cap; a large attempt count stays at the cap
     - _Requirements: 9.5, 9.8_
