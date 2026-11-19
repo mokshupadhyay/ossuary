@@ -1,3 +1,24 @@
+/*
+ * Lock order. Every webhook transaction takes locks in this order:
+ *   1. the `webhook_events` row for this event id (the inbox insert);
+ *   2. the `payment_states` row for the payment (`FOR UPDATE`);
+ *   3. the payment's parked `webhook_events` rows, `ORDER BY received_seq FOR UPDATE`
+ *      (capture events only);
+ *   4. the ledger key row in `idempotency_records` (the claim);
+ *   5. the payment's `transactions` rows, `ORDER BY id FOR UPDATE` (inside `refund`);
+ *   6. the account rows, `ORDER BY account_id FOR UPDATE` (inside `postTransaction`).
+ *
+ * Steps 4-6 are the ledger's own order. A plain `postTransaction` or `refund`
+ * call takes only locks 4-6, in that same order, and never takes locks 1-3.
+ * Lock 1 is unique per event id, and lock 2 is taken before any ledger lock, so
+ * a waits-for cycle between a webhook transaction and a plain ledger call is
+ * impossible. Two webhook transactions for one payment serialize on lock 2
+ * before reaching 3-6. Lock 3 rows all belong to the payment whose lock 2 is
+ * already held, and are taken in `received_seq` order.
+ *
+ * pglite has one connection, so this ordering is argued here and is not
+ * exercised by a concurrency test.
+ */
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Db, Tx } from '../db/client.js';
