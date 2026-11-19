@@ -103,7 +103,7 @@ Conventions for every task:
   - Run `vitest --run` and `tsc --noEmit`. Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Webhook handler
-  - [ ] 5.1 Implement `createWebhookHandler` in `src/webhooks/handler.ts`, with the inbox claim, unknown types and `payment.pending` in `src/webhooks/apply.ts`
+  - [x] 5.1 Implement `createWebhookHandler` in `src/webhooks/handler.ts`, with the inbox claim, unknown types and `payment.pending` in `src/webhooks/apply.ts`
     - **Configuration** is checked once, before any request (design.md):
       - the secret is at least 32 bytes;
       - the asset is non-empty;
@@ -126,7 +126,7 @@ Conventions for every task:
       - each configuration error.
     - _Requirements: 1.4, 1.5, 2.2, 3.3, 3.5, 4.1, 4.2, 4.3, 4.4, 4.6, 5.1, 5.2, 5.9, 6.2, 10.1, 10.2, 10.3_
 
-  - [ ] 5.2 Add the `payment.captured` flow to `src/webhooks/apply.ts`
+  - [x] 5.2 Add the `payment.captured` flow to `src/webhooks/apply.ts`
     - **Duplicate capture**: if `captured_event_id` is already set, record the event as `rejected` with reason `duplicate capture`, with no ledger change and no outbox message
     - **Otherwise, in a savepoint**:
       1. claim `ledgerKeyFor(eventId)` with `claimOrReplay`, hashing `{ op: 'webhook', eventId }`;
