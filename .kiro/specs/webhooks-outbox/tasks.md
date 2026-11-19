@@ -99,10 +99,10 @@ Conventions for every task:
     - Update `tests/unit/errors.test.ts` for the new error class
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Run `vitest --run` and `tsc --noEmit`. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Webhook handler
+- [x] 5. Webhook handler
   - [x] 5.1 Implement `createWebhookHandler` in `src/webhooks/handler.ts`, with the inbox claim, unknown types and `payment.pending` in `src/webhooks/apply.ts`
     - **Configuration** is checked once, before any request (design.md):
       - the secret is at least 32 bytes;
@@ -144,7 +144,7 @@ Conventions for every task:
       - the derived ledger key is the one stored on the transaction.
     - _Requirements: 5.3, 5.4, 6.1, 6.4, 8.1, 8.2, 8.3, 8.5_
 
-  - [ ] 5.3 Add the `payment.refunded` flow, parking, and application of parked refunds
+  - [x] 5.3 Add the `payment.refunded` flow, parking, and application of parked refunds
     - **Uncaptured payment**: record the refund as `parked`, with no ledger change and no outbox message
     - **Captured payment**: run `applyRefund` in a savepoint:
       1. claim `ledgerKeyFor(eventId)`;
@@ -166,20 +166,20 @@ Conventions for every task:
       - a partial refund leaves the state `refunded` and the balances correct.
     - _Requirements: 5.5, 5.6, 5.7, 5.8, 5.9, 6.1, 8.1, 8.4_
 
-  - [ ] 5.4 Prove rollback, lock order and secrecy in the handler
+  - [x] 5.4 Prove rollback, lock order and secrecy in the handler
     - Add a code comment at the top of `apply.ts` that lists the lock order from design.md (inbox row, payment row, parked rows, ledger key, payment transactions, accounts) and why it cannot form a cycle with plain `postTransaction` or `refund`
     - Tests:
       - **Rollback**: a failure injected after the ledger change (for example an account deleted from the fixture, or the crash helper's logger once task 9.1 exists) returns `500` and leaves no inbox row, entries, payment state or outbox message. Retrying the same delivery then applies it exactly once.
       - **Secrecy**: no response body or error message from any path contains the secret, either signature or the raw body, checked across every status code with the secret as a distinctive string.
     - _Requirements: 6.3, 6.5, 6.6, 1.6, 10.4_
 
-- [ ] 6. Outbox worker
+- [x] 6. Outbox worker
   - [x] 6.1 Implement `src/outbox/backoff.ts` and `tests/unit/backoff.test.ts`
     - `nextDelayMs(attempts, base, max) = min(max, base × 2^(attempts − 1))`. Compute it with `bigint` or a capped loop so a large attempt count cannot overflow to `Infinity`
     - Tests: exact values for attempts 1–5; the cap; a large attempt count stays at the cap
     - _Requirements: 9.5, 9.8_
 
-  - [ ] 6.2 Implement `runOutboxOnce` in `src/outbox/worker.ts` and write `tests/unit/worker.test.ts`
+  - [x] 6.2 Implement `runOutboxOnce` in `src/outbox/worker.ts` and write `tests/unit/worker.test.ts`
     - **Claim**, in a short transaction: select due, unleased `pending` rows `ORDER BY next_attempt_at, id LIMIT $batch FOR UPDATE SKIP LOCKED`. For each row:
       - if `attempts >= maxAttempts`, set it `dead` without sending;
       - otherwise increment `attempts` in the claim transaction (D2), and set `lease_until` and a new `claim_token`.
@@ -204,8 +204,8 @@ Conventions for every task:
       - nothing is ever deleted.
     - _Requirements: 8.6, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [ ] 7. Public API
-  - [ ] 7.1 Export the new surface from `src/index.ts` and extend `tests/unit/publicApi.test.ts`
+- [x] 7. Public API
+  - [x] 7.1 Export the new surface from `src/index.ts` and extend `tests/unit/publicApi.test.ts`
     - **Export**:
       - `createWebhookHandler`, `verifyWebhook`, `signWebhook`, `runOutboxOnce`, `nextDelayMs`;
       - the types `WebhookConfig`, `WebhookRequest`, `WebhookResponse`, `InboxOutcome`, `Clock`, `OutboxConfig`, `Sender`, `OutboxMessageToSend`, `OutboxRunResult`, `OutboxPayload`;
@@ -219,7 +219,7 @@ Conventions for every task:
       5. deliver a duplicate, then check nothing changes.
     - _Requirements: 10.1, 10.2, 8.1, 9.4_
 
-- [ ] 8. Checkpoint - Ensure all tests pass
+- [x] 8. Checkpoint - Ensure all tests pass
   - Run `vitest --run` and `tsc --noEmit`. Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Shared test helpers
