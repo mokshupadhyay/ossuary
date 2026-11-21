@@ -7,19 +7,29 @@
     "node": ">=22"
   },
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./poltergeist": "./src/poltergeist/index.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "test": "vitest --run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "embed-migrations": "tsx scripts/embed-migrations.ts",
+    "poltergeist": "tsx src/poltergeist/cli.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "@neondatabase/serverless": "^1.2.1",
+    "@ossuary/twin": "workspace:*",
     "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.16",
     "@types/node": "^22.20.5",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }
