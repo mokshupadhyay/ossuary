@@ -1,0 +1,110 @@
+# CI: tests, type checks and builds for the skeleton, both apps and the power, plus the
+# Playwright end-to-end tests in a separate job. Not yet run on GitHub (see README).
+#
+# Two pnpm workspaces: the root (packages/*, apps/*) and power/mcp, which has its own lockfile
+# so the power builds from a clone without the rest of the repo.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests, type checks and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pnpm version comes from "packageManager" in package.json.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            power/mcp/pnpm-lock.yaml
+
+      - name: Install (root workspace)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install (power/mcp workspace)
+        run: pnpm --dir power/mcp install --frozen-lockfile
+
+      - name: Core and twin type checks
+        run: |
+          pnpm --filter @ossuary/core typecheck
+          pnpm --filter @ossuary/twin typecheck
+
+      - name: Core tests (property tests on PGlite)
+        run: pnpm --filter @ossuary/core test
+
+      - name: The Tontine (tests, type check, build)
+        run: |
+          pnpm --filter the-tontine test
+          pnpm --filter the-tontine typecheck
+          pnpm --filter the-tontine build
+
+      - name: Haunted Tip Jar (tests, type check, build)
+        run: |
+          pnpm --filter haunted-tip-jar test
+          pnpm --filter haunted-tip-jar typecheck
+          pnpm --filter haunted-tip-jar build
+
+      - name: Power MCP server (tests, type check, build)
+        run: |
+          pnpm --dir power/mcp test
+          pnpm --dir power/mcp typecheck
+          pnpm --dir power/mcp build
+
+  e2e:
+    name: Playwright end-to-end (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (root workspace)
+        run: pnpm install --frozen-lockfile
+
+      # Both apps pin the same @playwright/test, so one browser install serves both.
+      - name: Install the Chromium browser
+        run: pnpm --filter the-tontine exec playwright install --with-deps chromium
+
+      - name: The Tontine e2e (desktop 1280 px and mobile 390 px)
+        run: |
+          pnpm --filter the-tontine build
+          pnpm --filter the-tontine e2e
+
+      # This app's Playwright config builds before it serves.
+      - name: Haunted Tip Jar e2e
+        run: pnpm --filter haunted-tip-jar e2e
+
+      - name: Keep the Playwright traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/*/test-results/
+          retention-days: 7
