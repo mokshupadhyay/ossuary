@@ -3,7 +3,6 @@
 import { randomUUID } from 'node:crypto';
 import fc from 'fast-check';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/db/client.js';
 import { balance } from '../../src/ledger/balance.js';
@@ -21,19 +20,18 @@ import {
   type AccountSpec,
   type PropertyDb,
 } from '../helpers/arbitraries.js';
+import {
+  SimulatedCrash,
+  calibrate,
+  createCrashingDb,
+  type CrashPoint,
+  type CrashingDb,
+} from '../helpers/crash.js';
 
 /*
- * Crash injection without touching src/.
- *
- * A second Drizzle instance shares the same PGlite client but has a query
- * logger. Drizzle calls the logger just before it executes each statement, so
- * throwing there stops the operation after exactly N statements, inside the
- * open database transaction. Postgres then rolls back, which is what happens
- * when a process dies mid-transaction and its connection drops.
- *
- * A wrapper around `db.transaction` adds the two points the logger cannot
- * reach: after the last statement but before COMMIT, and after COMMIT but
- * before the caller receives the response.
+ * Crash injection lives in tests/helpers/crash.ts: a second Drizzle instance
+ * on the same PGlite client whose logger throws once before statement N, plus
+ * "before commit" and "after commit" wrappers around db.transaction.
  */
 
 // The statements postTransaction runs, in order. Verified in beforeAll.
@@ -55,50 +53,12 @@ const describePoint = (p: number): string =>
       ? 'after the last statement, before commit'
       : 'after commit, before the response reached the caller';
 
-class SimulatedCrash extends Error {}
-
-const ctl = { crashAt: -1, executed: 0, log: [] as string[] };
-
-function makeCrashingDb(pdb: PropertyDb): Db {
-  const base = drizzle(pdb.handle.client, {
-    schema,
-    logger: {
-      logQuery(query: string): void {
-        if (ctl.crashAt === ctl.executed) {
-          // One-shot: the "process" dies here. Code that wrongly swallows the
-          // error and carries on would commit a partial state, which this
-          // property must then catch.
-          const point = ctl.crashAt;
-          ctl.crashAt = -1;
-          throw new SimulatedCrash(describePoint(point));
-        }
-        ctl.executed += 1;
-        ctl.log.push(query);
-      },
-    },
-  }) as unknown as Db;
-
-  return new Proxy(base, {
-    get(target, prop, receiver) {
-      if (prop === 'transaction') {
-        return async (cb: (tx: unknown) => Promise<unknown>, config?: unknown) => {
-          const result = await (target.transaction as (...a: unknown[]) => Promise<unknown>)(
-            async (tx: unknown) => {
-              const out = await cb(tx);
-              if (ctl.crashAt === BEFORE_COMMIT) throw new SimulatedCrash(describePoint(BEFORE_COMMIT));
-              return out;
-            },
-            config,
-          );
-          if (ctl.crashAt === AFTER_COMMIT) throw new SimulatedCrash(describePoint(AFTER_COMMIT));
-          return result;
-        };
-      }
-      const value: unknown = Reflect.get(target, prop, receiver);
-      return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value;
-    },
-  });
-}
+const toCrashPoint = (p: number): CrashPoint =>
+  p < STATEMENTS.length
+    ? { at: 'statement', index: p }
+    : p === BEFORE_COMMIT
+      ? { at: 'beforeCommit' }
+      : { at: 'afterCommit' };
 
 const POOL: readonly AccountSpec[] = [
   { type: 'asset', allowOverdraft: true },
@@ -137,28 +97,30 @@ async function keyState(db: Db, key: string): Promise<KeyState> {
 }
 
 let pdb: PropertyDb;
+let crashing: CrashingDb;
 let crashingDb: Db;
 
 beforeAll(async () => {
   pdb = await createPropertyDb();
-  crashingDb = makeCrashingDb(pdb);
+  crashing = createCrashingDb(pdb.handle.client);
+  crashingDb = crashing.db;
 
   // Calibrate: an uncrashed post must log exactly the expected statements, in order,
   // or the crash points above would not mean what they say.
   const ids = await seedAccounts(pdb.db, POOL);
-  ctl.crashAt = -1;
-  ctl.executed = 0;
-  ctl.log = [];
-  await postTransaction(crashingDb, {
-    idempotencyKey: randomUUID(),
-    kind: 'transfer',
-    entries: [
-      { accountId: ids[0]!, amount: 1n },
-      { accountId: ids[1]!, amount: -1n },
-    ],
-  });
-  expect(ctl.log.length).toBe(STATEMENTS.length);
-  ctl.log.forEach((q, i) => expect(q).toMatch(STATEMENTS[i]!));
+  await calibrate(
+    crashing,
+    () =>
+      postTransaction(crashingDb, {
+        idempotencyKey: randomUUID(),
+        kind: 'transfer',
+        entries: [
+          { accountId: ids[0]!, amount: 1n },
+          { accountId: ids[1]!, amount: -1n },
+        ],
+      }),
+    STATEMENTS,
+  );
 });
 
 afterAll(async () => {
@@ -183,13 +145,12 @@ describe('Property 6: crash at any step leaves the ledger fully committed or ful
           const balances = () => Promise.all(ids.map((id) => balance(pdb.db, id)));
 
           // Crash.
-          ctl.crashAt = point;
-          ctl.executed = 0;
+          crashing.arm(toCrashPoint(point));
           const crashed = await postTransaction(crashingDb, input).then(
             () => null,
             (e: unknown) => e,
           );
-          ctl.crashAt = -1;
+          crashing.disarm();
           expect(crashed, describePoint(point)).toBeInstanceOf(SimulatedCrash);
 
           // Exactly one of two states, and which one is fixed by whether COMMIT ran.
