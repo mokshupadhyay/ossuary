@@ -1,23 +1,101 @@
+# Money audit: runs the read-only `money-auditor` Kiro agent (.kiro/agents/money-auditor.json)
+# over a pull request's diff. The agent uses the Ossuary MCP server (power/mcp) to check each
+# changed file against .kiro/steering and ends its report with VERDICT: PASS or VERDICT: FAIL.
+#
+# Setup: add a repository secret named KIRO_API_KEY. Without it (for example on pull requests
+# from forks, which never receive secrets) the job prints a notice and passes, so CI stays green.
 name: money-audit
+
 on:
   pull_request:
-    paths: ["packages/**", "apps/**", ".kiro/**"]
+    paths:
+      - "packages/**"
+      - "apps/**"
+      - "power/**"
+      - ".kiro/**"
+
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: money-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: Install Kiro CLI
-        run: curl -fsSL https://cli.kiro.dev/install | bash && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Audit the diff with the money-auditor agent
+      - name: Check for the KIRO_API_KEY secret
+        id: gate
         env:
           KIRO_API_KEY: ${{ secrets.KIRO_API_KEY }}
         run: |
-          git diff origin/${{ github.base_ref }}...HEAD > diff.patch
+          if [ -z "${KIRO_API_KEY:-}" ]; then
+            echo "::notice title=Money audit skipped::The KIRO_API_KEY secret is not set (forks never receive secrets). Add it under Settings > Secrets and variables > Actions to run the money-auditor agent."
+            echo "Money audit skipped: the KIRO_API_KEY secret is not set." >> "$GITHUB_STEP_SUMMARY"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the pull request with history
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        if: steps.gate.outputs.enabled == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node 22
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the Ossuary MCP server
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          pnpm --dir power/mcp install --frozen-lockfile
+          pnpm --dir power/mcp build
+
+      - name: Install the Kiro CLI
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          curl -fsSL https://cli.kiro.dev/install | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Write the diff
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/${BASE_REF}...HEAD" > diff.patch
+
+      - name: Audit the diff with the money-auditor agent
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          KIRO_API_KEY: ${{ secrets.KIRO_API_KEY }}
+        run: |
+          set -o pipefail
+          # The report quotes code from the diff; stop the runner from treating any of it as a workflow command.
+          token="$(openssl rand -hex 16)"
+          echo "::stop-commands::${token}"
           kiro-cli chat --no-interactive --agent money-auditor \
             "Audit diff.patch against the steering rules." | tee audit.md
-          grep -q "VERDICT: PASS" audit.md
+          echo "::${token}::"
+
+      - name: Publish the report
+        if: always() && steps.gate.outputs.enabled == 'true'
+        run: |
+          if [ -f audit.md ]; then cat audit.md >> "$GITHUB_STEP_SUMMARY"; else echo "No audit report was produced." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Require VERDICT PASS
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          last="$(sed -e 's/\x1b\[[0-9;]*m//g' -e 's/\r$//' -e 's/[[:space:]]*$//' audit.md | grep -v '^[[:space:]]*$' | tail -n 1)"
+          if [ "$last" != "VERDICT: PASS" ]; then
+            echo "::error title=Money audit failed::The money-auditor did not end its report with VERDICT: PASS. See the job summary."
+            exit 1
+          fi

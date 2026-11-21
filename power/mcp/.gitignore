@@ -1,0 +1,3 @@
+node_modules/
+# The bundle is what plugin.json starts; keep it committable (the root .gitignore ignores dist/).
+!dist/

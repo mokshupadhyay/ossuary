@@ -1,0 +1,6 @@
+# power/mcp is its own pnpm workspace: the root workspace lists only packages/* and apps/*,
+# and the power must build from a clone without touching the root lockfile.
+packages:
+  - "."
+allowBuilds:
+  esbuild: true

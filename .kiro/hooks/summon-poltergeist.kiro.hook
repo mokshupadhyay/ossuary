@@ -1,11 +1,11 @@
 {
   "enabled": true,
   "name": "Summon the poltergeist",
-  "description": "Manual button: run the fault-injection property tests against the ledger and report the drift.",
-  "version": "1",
+  "description": "Manual button: throw the same seeded storm at Ossuary and at the Vibe Pay twin through the Ossuary MCP server, and report each drift meter.",
+  "version": "2",
   "when": { "type": "userTriggered" },
   "then": {
     "type": "askAgent",
-    "prompt": "Run the property-based test suite in packages/core with `pnpm --filter core test`. Summarise which of the five correctness properties passed, show any shrunk counterexample from fast-check, and state the final ledger drift (it must be 0)."
+    "prompt": "Summon the poltergeist. Call the MCP tool ossuary_run_poltergeist twice, with {\"seed\": 7, \"events\": 300, \"target\": \"ossuary\"} and then with {\"seed\": 7, \"events\": 300, \"target\": \"twin\"}. If the tool is not available, run `pnpm --filter core poltergeist --seed 7 --events 300 --target ossuary --json` and the same with `--target twin` instead, and read the JSON report from stdout. For each target, report summary.driftTotal (integer minor units of summary.asset, shown with summary.decimals decimals and no rounding) and the faults in summary.driftedFaults. Ossuary must show drift 0 and no drifted faults; if it does not, say so first, show report.counterexample, and stop. The twin is expected to drift. Do not edit any file."
   }
 }
