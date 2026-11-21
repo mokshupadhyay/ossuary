@@ -57,7 +57,21 @@ test('demo path', async ({ page, context }) => {
   // 6. Summon the poltergeist.
   await page.getByRole('link', { name: 'Summon the Poltergeist' }).click();
   await page.getByRole('button', { name: /summon the poltergeist/i }).click();
+  // The storm animates: ghosts cross both lanes, then a replay where the twin climbs and Ossuary stays at 0.
+  await expect(page.getByTestId('storm')).toBeVisible();
+  await expect(page.getByTestId('sky-twin').locator('.sprite').first()).toBeVisible();
+  await expect(page.locator('[data-testid="storm"][data-state="replaying"]')).toBeVisible({ timeout: 90_000 });
+  await expect.poll(async () => Number(await page.getByTestId('storm-twin-drifted').textContent())).toBeGreaterThan(0);
+  await expect(page.getByTestId('storm-ossuary-drifted')).toHaveText('0');
   await expect(page.getByTestId('drift-ossuary')).toHaveText('0.000000', { timeout: 90_000 });
+  await expect(page.getByTestId('storm-status')).toHaveText(
+    'Storm finished: drift 0.000000 USDC on Ossuary, 5871.276351 USDC on Vibe Pay (seed 7, 200 events).',
+  );
+  // Ghosts by fault: the double-tap row drifted 8/8 but nets to zero; it shows lost and conjured instead.
+  const doubleTap = page.getByRole('row', { name: /Concurrent double-tap/ });
+  await expect(doubleTap).toContainText('8/8');
+  await expect(doubleTap.getByRole('cell').nth(3)).toHaveText('2487.332129');
+  await expect(doubleTap.getByRole('cell').nth(4)).toHaveText('2487.332129');
   await expect(page.getByTestId('drift-twin')).not.toHaveText('0.000000');
   await expect(page.getByTestId('cx-twin')).toContainText('fault');
   await expect(page.getByTestId('epitaphs').getByRole('listitem').first()).toContainText('buried by');

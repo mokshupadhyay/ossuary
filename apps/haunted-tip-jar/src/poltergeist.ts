@@ -9,6 +9,7 @@ import {
   ossuaryFactory,
   summon,
   twinFactory,
+  type FaultId,
   type PoltergeistReport,
 } from '@ossuary/core/poltergeist';
 
@@ -49,4 +50,56 @@ export async function runDuel(seed: number, size: number, onPhase: (p: Phase) =>
   onPhase('twin');
   const twin = await summon({ storm, factory: twinFactory(), target: 'twin' });
   return { seed, size, ossuary, twin };
+}
+
+/** Gross money a fault moved the wrong way, in minor units (both are ≥ 0). */
+export interface FaultMoney {
+  lost: bigint;
+  conjured: bigint;
+}
+
+/*
+ * Lost and conjured per fault, summed ghost by ghost and account by account
+ * from `report.drifted`. A fault's net `drift.total` can be zero while its
+ * ghosts drifted (a double-tap moves money from the pot to a member), and its
+ * per-account sums can cancel across ghosts, so neither is used here. Every
+ * drifted ghost has a non-zero account (that is what "drifted" means in the
+ * report), so a fault with drifted ghosts always has lost + conjured > 0.
+ * These are gross figures: they can add up to more than the meter's net
+ * per-account lost and conjured, which are left as the report gives them.
+ */
+export function moneyByFault(report: PoltergeistReport): Map<FaultId, FaultMoney> {
+  const out = new Map<FaultId, FaultMoney>(report.faults.map((f) => [f.id, { lost: 0n, conjured: 0n }]));
+  for (const g of report.drifted) {
+    const m = out.get(g.faultId) ?? { lost: 0n, conjured: 0n };
+    for (const a of g.drift.accounts) {
+      const d = BigInt(a.drift);
+      if (d > 0n) m.lost += d;
+      if (d < 0n) m.conjured -= d;
+    }
+    out.set(g.faultId, m);
+  }
+  return out;
+}
+
+/** One ghost of the storm as each side handled it, for the replay animation. */
+export interface ReplayGhost {
+  id: string;
+  faultId: FaultId;
+  ossuaryDrifted: boolean;
+  twinDrifted: boolean;
+}
+
+/*
+ * The storm's ghosts in storm order (unit ids are zero-padded, so they sort),
+ * read from both reports' blocked and drifted lists. Both sides ran the same
+ * storm, so the ids match. Used only to pace the animation; every number the
+ * panel shows still comes from the reports.
+ */
+export function replayGhosts(duel: Duel): ReplayGhost[] {
+  const twinDrifted = new Set(duel.twin.drifted.map((g) => g.ghostId));
+  const ossuaryDrifted = new Set(duel.ossuary.drifted.map((g) => g.ghostId));
+  return [...duel.ossuary.blocked, ...duel.ossuary.drifted]
+    .map((g) => ({ id: g.ghostId, faultId: g.faultId, ossuaryDrifted: ossuaryDrifted.has(g.ghostId), twinDrifted: twinDrifted.has(g.ghostId) }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

@@ -84,12 +84,16 @@ button:disabled { opacity: 0.6; cursor: progress; }
 .badge-arrived { color: var(--ok); }
 .badge-partly-reversed { color: var(--accent); }
 .badge-reversed, .badge-pending { color: var(--muted); }
-.status-reversed { opacity: 0.55; }
+/* Reversed tips recede without dimming their text below 4.5:1: dashed outline, muted text, faded icon. */
+.status-reversed { border-style: dashed; background: transparent; }
+.status-reversed .tip-amount, .status-reversed .tip-message { color: var(--muted); }
 
 /* Ghosts (preview and overlay) */
 .ghost-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
 .floating-ghost { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; padding: 0.7rem 0.9rem; border-radius: 22px 22px 8px 22px; background: rgb(217 242 255 / 0.12); border: 1px solid rgb(217 242 255 / 0.35); color: var(--ghost); box-shadow: 0 0 22px rgb(217 242 255 / 0.25); animation: float-in 900ms ease-out both, bob 4s ease-in-out 900ms infinite; }
-.floating-ghost.faded { opacity: 0.3; filter: grayscale(1); animation: none; transition: opacity 1.2s ease; }
+/* A fully reversed ghost fades: its shape and glow go, its text stays readable (muted, 4.5:1 or better). */
+.floating-ghost.faded { color: var(--muted); background: rgb(15 13 20 / 0.6); border-style: dashed; border-color: rgb(185 173 201 / 0.4); box-shadow: none; animation: none; transition: background-color 1.2s ease, box-shadow 1.2s ease, color 1.2s ease; }
+.floating-ghost.faded .ghost-icon { opacity: 0.35; filter: grayscale(1); }
 .ghost-who { font-weight: 700; }
 .ghost-message { width: 100%; font-style: italic; overflow-wrap: anywhere; }
 .ghost-reversed { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -146,3 +150,78 @@ meter { width: 100%; height: 1rem; }
 .meter-stats dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .epitaphs { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 0.3rem; font-size: 0.9rem; }
 @media (max-width: 720px) { .duel, .summon-fields { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Atmosphere: candlelight, ghosts and tombstones (one treatment everywhere) ---------- */
+:root {
+  --candle-glow: 0 0 28px rgb(246 182 75 / 0.10), 0 0 2px rgb(246 182 75 / 0.25);
+  --ghost-glow: drop-shadow(0 0 6px rgb(217 242 255 / 0.55));
+  --ghost-shape: 22px 22px 8px 22px;
+  --stone: #2a2433;
+  --stone-line: #4a4058;
+}
+html:not(.overlay-mode), html:not(.overlay-mode) body {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 105%, rgb(246 182 75 / 0.10), transparent 70%) fixed,
+    radial-gradient(ellipse at top, #2a1f36 0%, var(--bg) 60%) fixed,
+    var(--bg);
+}
+.card { box-shadow: var(--candle-glow); }
+.brand { text-shadow: 0 0 14px rgb(246 182 75 / 0.45); }
+h1 { text-shadow: 0 0 22px rgb(246 182 75 / 0.18); }
+.goal-fill { animation: flicker 3.2s ease-in-out infinite; }
+@keyframes flicker { 0%, 100% { box-shadow: 0 0 14px var(--accent); } 45% { box-shadow: 0 0 20px var(--accent); } 60% { box-shadow: 0 0 11px var(--accent); } }
+
+/* Ghosts: the same shape and glow on tips, the overlay and the storm. */
+.ghost-card { border-radius: var(--ghost-shape); }
+.floating-ghost { border-radius: var(--ghost-shape); }
+.ghost-icon, .sprite { filter: var(--ghost-glow); }
+.overlay-page .floating-ghost:not(.faded) { box-shadow: 0 0 22px rgb(217 242 255 / 0.25), 0 0 36px rgb(246 182 75 / 0.14); }
+
+/* Tombstones: buried ghosts on the poltergeist page and in the coffin. */
+.tombstone { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.45rem 0.7rem; background: var(--stone); border: 1px solid var(--stone-line); border-radius: 18px 18px 4px 4px; overflow-wrap: anywhere; }
+.tombstone-icon { flex: none; }
+.epitaphs { grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.5rem; }
+.defenses.tombstones { list-style: none; padding: 0; display: grid; gap: 0.5rem; margin-bottom: 0.8rem; }
+
+/* Drift meters: one fill colour per verdict, in every engine. */
+meter { appearance: none; -webkit-appearance: none; height: 0.9rem; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--line); overflow: hidden; }
+meter::-webkit-meter-bar { background: transparent; border: 0; height: 100%; }
+meter::-webkit-meter-optimum-value,
+meter::-webkit-meter-suboptimum-value,
+meter::-webkit-meter-even-less-good-value { background: var(--meter-fill, var(--ok)); border-radius: 999px; transition: inline-size 120ms linear; }
+meter::-moz-meter-bar { background: var(--meter-fill, var(--ok)); border-radius: 999px; }
+.meter.ok { --meter-fill: var(--ok); }
+.meter.bad { --meter-fill: linear-gradient(90deg, #c2413f, var(--bad)); }
+.meter.storming.bad { box-shadow: 0 0 28px rgb(255 143 143 / 0.22); transition: box-shadow 300ms ease; }
+
+/* The storm: ghosts cross each lane while it runs. Decorative and aria-hidden. */
+.storm-status { margin: 0.6rem 0 0; min-height: 1.5em; color: var(--muted); }
+.storm-status:empty { margin: 0; min-height: 0; }
+.sky { position: relative; container-type: inline-size; height: 4.2rem; margin: 0 0 0.6rem; border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(ellipse 60% 90% at 100% 100%, rgb(246 182 75 / 0.12), transparent 70%), linear-gradient(180deg, #171320, var(--bg-2)); }
+.sky-twin { background: radial-gradient(ellipse 60% 90% at 100% 100%, rgb(255 143 143 / 0.14), transparent 70%), linear-gradient(180deg, #171320, var(--bg-2)); }
+.sky-end { position: absolute; right: 0.6rem; bottom: 0.4rem; font-size: 1.6rem; }
+.sprite { position: absolute; left: 0; top: 50%; font-size: 1.6rem; line-height: 1; will-change: transform, opacity; }
+.sprite.brewing { animation: haunt 1.8s linear infinite; }
+.sprite.buried { animation: buried 1.4s ease-in forwards; }
+.sprite.escaped { animation: escaped 1.4s ease-in forwards; filter: drop-shadow(0 0 7px var(--bad)); }
+.sky.still { display: flex; align-items: center; padding: 0 0.8rem; font-size: 1.4rem; }
+@keyframes haunt {
+  0% { transform: translate(-2rem, -50%); opacity: 0; }
+  15% { opacity: 1; }
+  50% { transform: translate(calc(50cqw - 1rem), -80%); }
+  85% { opacity: 1; }
+  100% { transform: translate(calc(100cqw - 3rem), -50%); opacity: 0; }
+}
+@keyframes buried {
+  0% { transform: translate(-2rem, -50%); opacity: 0; }
+  15% { opacity: 1; }
+  75% { transform: translate(calc(100cqw - 4rem), -40%); opacity: 1; }
+  100% { transform: translate(calc(100cqw - 3rem), 0) scale(0.3); opacity: 0; }
+}
+@keyframes escaped {
+  0% { transform: translate(-2rem, -50%); opacity: 0; }
+  15% { opacity: 1; }
+  70% { transform: translate(calc(100cqw - 4rem), -50%); opacity: 1; }
+  100% { transform: translate(calc(100cqw - 2rem), -160%) rotate(20deg); opacity: 0; }
+}

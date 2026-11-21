@@ -13,6 +13,8 @@ It runs entirely in your browser: Postgres is PGlite in IndexedDB, and the payme
 - **An OBS overlay** at `#/overlay`, with a transparent background. Ghosts come from core's **outbox**: one per message, however often a message is resent. A fully reversed tip's ghost fades.
 - **Count the coffin** at `#/coffin`: total in − total out − held = **0**. In and out are read from core's webhook inbox, and held from the ledger entries, so a disagreement between the two shows up.
 - **Summon the Poltergeist** at `#/poltergeist`: the same seeded storm runs against Ossuary and the vibe-coded Vibe Pay twin. Ossuary stays at drift 0.000000; for seed 7 and 200 events the twin drifts 5871.276351 USDC.
+  - While the storm runs, ghosts cross both panels. A 2.4-second replay follows: on Ossuary every ghost sinks into a tombstone; on Vibe Pay the ones that drifted escape, its drifted count rises and its meter climbs red. With `prefers-reduced-motion` the lanes are static and the replay is skipped. A polite live region announces "Storm finished: drift 0.000000 USDC on Ossuary, 5871.276351 USDC on Vibe Pay".
+  - "Ghosts by fault" shows what the twin **lost** and **conjured** per fault, added up ghost by ghost. A net figure would hide a double-tap: the pot loses what a member gains, so seed 7's 8/8 drifted double-taps net to 0.000000, but show 2487.332129 lost and 2487.332129 conjured.
 
 ## Run it
 
@@ -29,7 +31,7 @@ pnpm --filter haunted-tip-jar preview    # serves dist/ on http://localhost:4174
 
 ```sh
 pnpm --filter haunted-tip-jar test       # Vitest: unit, property and component tests (about 10 s)
-pnpm --filter haunted-tip-jar e2e        # Playwright: builds, previews and runs the full demo path
+pnpm --filter haunted-tip-jar e2e        # Playwright: builds, previews, runs the demo path and the 390 px checks
 ```
 
 | Property (fast-check) | File | Deliberate break it caught |
@@ -38,6 +40,8 @@ pnpm --filter haunted-tip-jar e2e        # Playwright: builds, previews and runs
 | P2: reversals never exceed a tip, and the coffin balances after every step | `tests/property/reversalCap.property.ts` | refunds summed without `status = 'applied'`; key reuse with a changed request run instead of `409` |
 | P3: amounts round-trip exactly | `tests/property/money.property.ts` | parsing through `Number(text) * 1e6` (truncated) |
 | P4: the browser `node:crypto` stand-in matches Node byte for byte | `tests/property/cryptoShim.property.ts` | HMAC that ignores its key |
+
+`e2e/demo.spec.ts` walks the demo at desktop size, including the storm animation, the live-region text and the double-tap row. `e2e/mobile.spec.ts` runs at 390 px: no horizontal scroll on any page, visible focus rings, and the still storm under reduced motion. Text contrast was checked at 390 px and 1280 px against 4.5:1; reversed tips and faded ghosts use muted text and dashed outlines rather than opacity so they pass.
 
 ## How core runs in a browser
 

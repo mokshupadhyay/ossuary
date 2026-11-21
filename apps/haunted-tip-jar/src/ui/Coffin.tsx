@@ -79,18 +79,38 @@ export function Coffin({ jar, intervalMs }: { jar: TipJar; intervalMs?: number }
 
       <section className="card" aria-labelledby="buried">
         <h2 id="buried">Ghosts buried during the stream</h2>
-        <ul className="defenses">
-          <li>
-            <strong>{c.defenses.duplicates}</strong> duplicate deliveries ignored by the inbox
+        <ul className="defenses tombstones">
+          <li className="tombstone">
+            <span className="tombstone-icon" aria-hidden="true">
+              🪦
+            </span>
+            <span>
+              <strong>{c.defenses.duplicates}</strong> duplicate deliveries ignored by the inbox
+            </span>
           </li>
-          <li>
-            <strong>{c.defenses.staleRejected}</strong> stale or forged webhooks refused by the signature check
+          <li className="tombstone">
+            <span className="tombstone-icon" aria-hidden="true">
+              🪦
+            </span>
+            <span>
+              <strong>{c.defenses.staleRejected}</strong> stale or forged webhooks refused by the signature check
+            </span>
           </li>
-          <li>
-            <strong>{c.defenses.parked}</strong> reversals parked until their capture arrived
+          <li className="tombstone">
+            <span className="tombstone-icon" aria-hidden="true">
+              🪦
+            </span>
+            <span>
+              <strong>{c.defenses.parked}</strong> reversals parked until their capture arrived
+            </span>
           </li>
-          <li>
-            <strong>{c.defenses.rejectedReversals}</strong> reversals rejected for asking more than a tip received
+          <li className="tombstone">
+            <span className="tombstone-icon" aria-hidden="true">
+              🪦
+            </span>
+            <span>
+              <strong>{c.defenses.rejectedReversals}</strong> reversals rejected for asking more than a tip received
+            </span>
           </li>
         </ul>
         <button type="button" className="secondary" onClick={() => void refresh()}>
