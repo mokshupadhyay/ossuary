@@ -36,9 +36,13 @@ export function parseEvent(rawBody: string, ledgerAsset: string): ParsedEvent {
   if (typeof id !== 'string') return fail('id', 'must be a string');
   const idLen = Array.from(id).length;
   if (idLen < 1 || idLen > 255) return fail('id', 'must be 1-255 characters');
+  // Postgres text cannot store U+0000. Without this check the insert throws, the handler answers 500, and the rail
+  // retries the same event forever. A 400 tells it to stop.
+  if (id.includes('\u0000')) return fail('id', 'must not contain NUL characters');
 
   const type = o['type'];
   if (typeof type !== 'string') return fail('type', 'must be a string');
+  if (type.includes('\u0000')) return fail('type', 'must not contain NUL characters');
 
   const paymentId = o['paymentId'];
   if (typeof paymentId !== 'string' || !UUID_RE.test(paymentId)) {

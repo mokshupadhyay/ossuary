@@ -127,4 +127,11 @@ describe('parseEvent', () => {
       expect((e as Error).message).not.toContain('SECRET-VALUE-123');
     }
   });
+  it('rejects a NUL character in id and in type, so the rail gets a 400 instead of retrying a 500 forever', () => {
+    const base = { paymentId: '3f2b8c1e-0b7a-4d53-9a43-6a1d6f0c2e11', asset: 'USDC', type: 'payment.pending' };
+    const withId = JSON.stringify({ ...base, id: 'evt\u0000_1' });
+    expect(() => parseEvent(withId, 'USDC')).toThrow(/id/);
+    const withType = JSON.stringify({ ...base, id: 'evt_1', type: 'payment.\u0000x' });
+    expect(() => parseEvent(withType, 'USDC')).toThrow(/type/);
+  });
 });
