@@ -1,0 +1,540 @@
+{
+  "schema": "ossuary/poltergeist-report",
+  "version": 1,
+  "generator": 1,
+  "seed": 7,
+  "size": 60,
+  "ensureEveryFault": false,
+  "target": "ossuary",
+  "asset": "USDC",
+  "decimals": 6,
+  "events": {
+    "planned": 60,
+    "attempts": 64,
+    "retries": 4,
+    "crashes": 4
+  },
+  "faults": [
+    {
+      "id": "duplicate-delivery",
+      "name": "Duplicate delivery",
+      "ghosts": 2,
+      "deliveries": 7,
+      "blocked": 2,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "replayed-timestamp",
+      "name": "Replayed old timestamp",
+      "ghosts": 0,
+      "deliveries": 0,
+      "blocked": 0,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "out-of-order",
+      "name": "Out-of-order events",
+      "ghosts": 3,
+      "deliveries": 7,
+      "blocked": 3,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "refund-before-capture",
+      "name": "Refund before capture",
+      "ghosts": 1,
+      "deliveries": 3,
+      "blocked": 1,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "double-tap",
+      "name": "Concurrent double-tap",
+      "ghosts": 2,
+      "deliveries": 8,
+      "blocked": 2,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "crash-mid-step",
+      "name": "Crash between steps",
+      "ghosts": 4,
+      "deliveries": 6,
+      "blocked": 4,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "refund-races-payout",
+      "name": "Refund racing a payout",
+      "ghosts": 4,
+      "deliveries": 12,
+      "blocked": 4,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "late-after-refund",
+      "name": "Late delivery after a refund",
+      "ghosts": 5,
+      "deliveries": 15,
+      "blocked": 5,
+      "drifted": 0,
+      "drift": {
+        "total": "0",
+        "accounts": [
+          {
+            "account": "pot",
+            "drift": "0"
+          },
+          {
+            "account": "member:m0",
+            "drift": "0"
+          },
+          {
+            "account": "member:m1",
+            "drift": "0"
+          },
+          {
+            "account": "member:m2",
+            "drift": "0"
+          },
+          {
+            "account": "member:m3",
+            "drift": "0"
+          },
+          {
+            "account": "member:m4",
+            "drift": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "honest": {
+    "units": 2,
+    "deliveries": 2,
+    "drift": {
+      "total": "0",
+      "accounts": [
+        {
+          "account": "pot",
+          "drift": "0"
+        },
+        {
+          "account": "member:m0",
+          "drift": "0"
+        },
+        {
+          "account": "member:m1",
+          "drift": "0"
+        },
+        {
+          "account": "member:m2",
+          "drift": "0"
+        },
+        {
+          "account": "member:m3",
+          "drift": "0"
+        },
+        {
+          "account": "member:m4",
+          "drift": "0"
+        }
+      ]
+    }
+  },
+  "drift": {
+    "total": "0",
+    "accounts": [
+      {
+        "account": "pot",
+        "drift": "0"
+      },
+      {
+        "account": "member:m0",
+        "drift": "0"
+      },
+      {
+        "account": "member:m1",
+        "drift": "0"
+      },
+      {
+        "account": "member:m2",
+        "drift": "0"
+      },
+      {
+        "account": "member:m3",
+        "drift": "0"
+      },
+      {
+        "account": "member:m4",
+        "drift": "0"
+      }
+    ],
+    "conjured": "0",
+    "lost": "0",
+    "doubleCreditedMembers": 0
+  },
+  "settleDrift": {
+    "total": "0",
+    "accounts": [
+      {
+        "account": "pot",
+        "drift": "0"
+      },
+      {
+        "account": "member:m0",
+        "drift": "0"
+      },
+      {
+        "account": "member:m1",
+        "drift": "0"
+      },
+      {
+        "account": "member:m2",
+        "drift": "0"
+      },
+      {
+        "account": "member:m3",
+        "drift": "0"
+      },
+      {
+        "account": "member:m4",
+        "drift": "0"
+      }
+    ]
+  },
+  "fractionalBalances": [],
+  "blocked": [
+    {
+      "ghostId": "u0001",
+      "faultId": "late-after-refund",
+      "subject": "evt_67d044f4",
+      "epitaph": "evt_67… arrived late after its refund, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0002",
+      "faultId": "crash-mid-step",
+      "subject": "key_4bdc4c95",
+      "epitaph": "key_4b… crashed mid-step, buried by transaction rollback"
+    },
+    {
+      "ghostId": "u0003",
+      "faultId": "crash-mid-step",
+      "subject": "evt_8c4344aa",
+      "epitaph": "evt_8c… crashed mid-step, buried by transaction rollback"
+    },
+    {
+      "ghostId": "u0004",
+      "faultId": "duplicate-delivery",
+      "subject": "evt_5b631b95",
+      "epitaph": "evt_5b… delivered twice, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0005",
+      "faultId": "refund-races-payout",
+      "subject": "evt_2387d206",
+      "epitaph": "evt_23… refund raced a payout, passed without drift"
+    },
+    {
+      "ghostId": "u0006",
+      "faultId": "double-tap",
+      "subject": "key_ebdf053d",
+      "epitaph": "key_eb… double-tapped payout, buried by idempotency key"
+    },
+    {
+      "ghostId": "u0007",
+      "faultId": "duplicate-delivery",
+      "subject": "evt_e41cd473",
+      "epitaph": "evt_e4… delivered twice, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0008",
+      "faultId": "late-after-refund",
+      "subject": "evt_8cabb604",
+      "epitaph": "evt_8c… arrived late after its refund, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0009",
+      "faultId": "out-of-order",
+      "subject": "pay_6e141876",
+      "epitaph": "pay_6e… arrived out of order, passed without drift"
+    },
+    {
+      "ghostId": "u0010",
+      "faultId": "late-after-refund",
+      "subject": "evt_9e6ff90a",
+      "epitaph": "evt_9e… arrived late after its refund, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0011",
+      "faultId": "refund-races-payout",
+      "subject": "evt_35ee680b",
+      "epitaph": "evt_35… refund raced a payout, passed without drift"
+    },
+    {
+      "ghostId": "u0012",
+      "faultId": "late-after-refund",
+      "subject": "evt_9bfbbced",
+      "epitaph": "evt_9b… arrived late after its refund, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0013",
+      "faultId": "out-of-order",
+      "subject": "pay_95818765",
+      "epitaph": "pay_95… arrived out of order, passed without drift"
+    },
+    {
+      "ghostId": "u0014",
+      "faultId": "refund-races-payout",
+      "subject": "evt_2ca910ea",
+      "epitaph": "evt_2c… refund raced a payout, passed without drift"
+    },
+    {
+      "ghostId": "u0015",
+      "faultId": "refund-before-capture",
+      "subject": "evt_cc5ecdca",
+      "epitaph": "evt_cc… refund arrived before its capture, buried by parked until its capture"
+    },
+    {
+      "ghostId": "u0016",
+      "faultId": "crash-mid-step",
+      "subject": "evt_40574c86",
+      "epitaph": "evt_40… crashed mid-step, buried by transaction rollback"
+    },
+    {
+      "ghostId": "u0017",
+      "faultId": "out-of-order",
+      "subject": "pay_7a1a5be2",
+      "epitaph": "pay_7a… arrived out of order, passed without drift"
+    },
+    {
+      "ghostId": "u0018",
+      "faultId": "crash-mid-step",
+      "subject": "evt_ee5a5344",
+      "epitaph": "evt_ee… crashed mid-step, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0019",
+      "faultId": "late-after-refund",
+      "subject": "evt_6241e946",
+      "epitaph": "evt_62… arrived late after its refund, buried by inbox dedupe"
+    },
+    {
+      "ghostId": "u0020",
+      "faultId": "double-tap",
+      "subject": "key_d42b0813",
+      "epitaph": "key_d4… double-tapped payout, buried by idempotency key"
+    },
+    {
+      "ghostId": "u0021",
+      "faultId": "refund-races-payout",
+      "subject": "evt_7b8b955a",
+      "epitaph": "evt_7b… refund raced a payout, passed without drift"
+    }
+  ],
+  "drifted": [],
+  "counterexample": null
+}

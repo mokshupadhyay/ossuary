@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import fc from 'fast-check';
-import type { WebhookRequest } from '../../src/webhooks/handler.js';
-import { signWebhook, type Clock } from '../../src/webhooks/verify.js';
+
 
 /*
  * Arbitraries and helpers for the webhooks-outbox properties.
@@ -185,15 +184,5 @@ export function materialize(history: RailHistory, asset: string, tag: string = r
   return { tag, paymentIds, events };
 }
 
-/** A request signed at the clock's current second, in the Signed_Payload format. */
-export function signedDelivery(secret: string, clock: Clock, body: string | Uint8Array): WebhookRequest {
-  return signedDeliveryAt(secret, Math.floor(clock.now() / 1000), body);
-}
-
-/** A request signed with an explicit Unix-seconds timestamp. */
-export function signedDeliveryAt(secret: string, timestampS: number, body: string | Uint8Array): WebhookRequest {
-  return {
-    rawBody: body,
-    headers: { 'ossuary-timestamp': String(timestampS), 'ossuary-signature': signWebhook(secret, timestampS, body) },
-  };
-}
+// Moved to src/poltergeist/rail.ts so the poltergeist can use them from src/ (poltergeist-engine D6).
+export { signedDelivery, signedDeliveryAt } from '../../src/poltergeist/rail.js';
