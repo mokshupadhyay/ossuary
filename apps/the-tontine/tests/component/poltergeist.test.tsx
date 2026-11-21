@@ -11,8 +11,9 @@ describe('Summon the Poltergeist', () => {
     expect(panel.getByLabelText('Events')).toHaveValue('200');
     await user.click(panel.getByRole('button', { name: 'Summon the Poltergeist' }));
 
-    // While the storm runs, money controls are locked.
+    // While the storm runs, money controls are locked and ghosts drift across the stage.
     expect(panel.getByRole('button', { name: 'Summoning…' })).toBeDisabled();
+    expect(panel.getByTestId('storm-stage')).toHaveAttribute('data-state', 'storm');
     expect(screen.getByRole('button', { name: 'Record 50.00 USDC from Nkechi' })).toBeDisabled();
 
     await panel.findByTestId('seance-result', {}, { timeout: 60_000 });
@@ -32,7 +33,16 @@ describe('Summon the Poltergeist', () => {
     const books = panel.getByTestId('seance-books');
     expect(books).toHaveTextContent('The Midnight Circle’s books are untouched: pot 150.00 USDC before and after.');
     expect(books).toHaveTextContent('The whole ledger, storm included, sums to 0.00 USDC.');
-    expect(screen.getByTestId('announcer')).toHaveTextContent('Ossuary drift 0.00 USDC');
+    // The stage's polite live region says how the storm ended; Vibe Pay's meter is full, Ossuary's empty.
+    expect(panel.getByTestId('storm-status')).toHaveTextContent(/^Storm finished: drift 0\.00 USDC on Ossuary, .+ on Vibe Pay\.$/);
+    expect(panel.getByTestId('storm-status')).not.toHaveTextContent(/^Storm finished: drift 0\.00 USDC on Ossuary, 0\.00 USDC on Vibe Pay/);
+    expect(panel.getByTestId('gauge-ossuary')).toHaveAttribute('data-percent', '0');
+    expect(panel.getByTestId('gauge-twin')).toHaveAttribute('data-percent', '100');
+    // No drifted row in either table reads zero for money moved.
+    for (const row of panel.getAllByRole('row').filter((r) => r.classList.contains('faults__row--drifted'))) {
+      const cells = within(row).getAllByRole('cell');
+      expect(`${cells[3]!.textContent} ${cells[4]!.textContent}`).not.toBe('0.00 0.00');
+    }
 
     // Controls come back, and the circle still works.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Record 50.00 USDC from Nkechi' })).toBeEnabled());

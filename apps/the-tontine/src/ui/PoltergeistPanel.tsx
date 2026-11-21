@@ -2,7 +2,10 @@ import { useId, useState, type FormEvent } from 'react';
 import type { PoltergeistReport } from '@ossuary/core/poltergeist';
 import { formatUsdc } from '../money';
 import { DEFAULT_SEED, MAX_SEED, STORM_SIZES, type SeancePhase, type SeanceResult, type StormSize } from '../tontine/seance';
+import { describeDrift, lostAndConjured } from '../tontine/stormView';
 import { DriftMeter } from './DriftMeter';
+import { StormStage } from './StormStage';
+import { useReducedMotion } from './useReducedMotion';
 
 export interface PoltergeistPanelProps {
   running: boolean;
@@ -21,12 +24,13 @@ const PHASE_TEXT: Record<SeancePhase, string> = {
 
 function Side({ title, report, story }: { title: string; report: PoltergeistReport; story: string }) {
   const total = BigInt(report.drift.total);
+  const overall = lostAndConjured(report.drift);
   const isTwin = report.target === 'twin';
   return (
     <article className={`side side--${report.target}`} aria-labelledby={`side-${report.target}`}>
       <h3 id={`side-${report.target}`}>{title}</h3>
       <p className="muted">{story}</p>
-      <DriftMeter drift={total} label={title} />
+      <DriftMeter drift={total} label={title} lost={overall.lost} conjured={overall.conjured} />
       <dl className="side__facts">
         <div>
           <dt>Money conjured</dt>
@@ -47,38 +51,53 @@ function Side({ title, report, story }: { title: string; report: PoltergeistRepo
           </dd>
         </div>
       </dl>
-      <table className="faults">
-        <caption className="sr-only">{title}: ghosts per fault</caption>
-        <thead>
-          <tr>
-            <th scope="col">Fault</th>
-            <th scope="col">Ghosts</th>
-            <th scope="col">Blocked</th>
-            <th scope="col">Drifted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.faults.map((f) => (
-            <tr key={f.id} className={f.drifted > 0 ? 'faults__row--drifted' : undefined}>
-              <th scope="row">{f.name}</th>
-              <td>{f.ghosts}</td>
-              <td>{f.blocked}</td>
-              <td>
-                {f.drifted > 0 && <span aria-hidden="true">✗ </span>}
-                {f.drifted}
-              </td>
+      {/* Scrolls inside its own box if a narrow screen cannot fit six columns; focusable so the keyboard can scroll it. */}
+      <div className="faults__wrap" tabIndex={0} role="region" aria-label={`${title}: ghosts by fault`}>
+        <table className="faults">
+          <caption className="sr-only">{title}: ghosts per fault</caption>
+          <thead>
+            <tr>
+              <th scope="col">Fault</th>
+              <th scope="col">Ghosts</th>
+              <th scope="col">Blocked</th>
+              <th scope="col">Drifted</th>
+              <th scope="col">
+                Lost <span className="faults__unit">(USDC)</span>
+              </th>
+              <th scope="col">
+                Conjured <span className="faults__unit">(USDC)</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.faults.map((f) => {
+              // Lost and conjured from the per-account drifts: a double-tap nets to zero in total but moves money both ways.
+              const { lost, conjured } = lostAndConjured(f.drift);
+              return (
+                <tr key={f.id} className={f.drifted > 0 ? 'faults__row--drifted' : undefined}>
+                  <th scope="row">{f.name}</th>
+                  <td>{f.ghosts}</td>
+                  <td>{f.blocked}</td>
+                  <td className="faults__drifted">
+                    {f.drifted > 0 && <span aria-hidden="true">✗ </span>}
+                    {f.drifted}
+                  </td>
+                  <td className={lost > 0n ? 'faults__money--bad' : undefined}>{formatUsdc(lost, { code: false })}</td>
+                  <td className={conjured > 0n ? 'faults__money--bad' : undefined}>{formatUsdc(conjured, { code: false })}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {isTwin && report.drifted.length > 0 && (
         <details className="ghosts" open>
           <summary>Ghosts that got through ({report.drifted.length})</summary>
           <ul>
             {report.drifted.map((g) => (
               <li key={g.ghostId}>
-                <span className="ghost__fault">{report.faults.find((f) => f.id === g.faultId)?.name ?? g.faultId}</span> · <code>{g.subject}</code> ·
-                drift {formatUsdc(BigInt(g.drift.total))}
+                <span className="ghost__fault">{report.faults.find((f) => f.id === g.faultId)?.name ?? g.faultId}</span> · <code>{g.subject}</code> ·{' '}
+                {describeDrift(lostAndConjured(g.drift))}
               </li>
             ))}
           </ul>
@@ -108,6 +127,9 @@ function Side({ title, report, story }: { title: string; report: PoltergeistRepo
 /** Summon the Poltergeist: the same storm against this circle's ledger and against Vibe Pay (Requirement 10). */
 export function PoltergeistPanel({ running, phase, result, error, disabled, onSummon }: PoltergeistPanelProps) {
   const id = useId();
+  const reduced = useReducedMotion();
+  // The full report appears once the storm has been replayed on stage.
+  const [replayed, setReplayed] = useState<SeanceResult | null>(null);
   const [seed, setSeed] = useState(String(DEFAULT_SEED));
   const [size, setSize] = useState<StormSize>(200);
   const [seedError, setSeedError] = useState<string | null>(null);
@@ -171,17 +193,18 @@ export function PoltergeistPanel({ running, phase, result, error, disabled, onSu
           <span className="seance__spinner" aria-hidden="true" /> {PHASE_TEXT[phase]}
         </p>
       )}
+      <StormStage running={running} phase={phase} result={result} reduced={reduced} onFinished={setReplayed} />
       {error && (
         <p className="field__error" role="alert">
           The séance failed: {error}
         </p>
       )}
 
-      {result && (
+      {result && replayed === result && (
         <div className="seance__result" data-testid="seance-result">
           <p className="seance__summary">
             Seed {result.seed}, {result.size.toLocaleString('en-US')} events. Ossuary drift <strong>{formatUsdc(BigInt(result.ossuary.drift.total))}</strong>
-            . Vibe Pay drift <strong>{formatUsdc(BigInt(result.twin.drift.total))}</strong>.
+            . Vibe Pay drift <strong>{formatUsdc(BigInt(result.twin.drift.total))}</strong> ({describeDrift(lostAndConjured(result.twin.drift))}).
           </p>
           <div className="split">
             <Side

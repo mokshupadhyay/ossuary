@@ -167,9 +167,8 @@ export function App({ runtime }: { runtime: Runtime }) {
     runSeance(s.service, selected, { seed, size, onPhase: (phase) => setSeance((st) => ({ ...st, phase })) })
       .then((result) => {
         setSeance({ running: false, phase: null, result, error: null });
-        announce(
-          `The poltergeist is gone. Ossuary drift ${formatUsdc(BigInt(result.ossuary.drift.total))}; Vibe Pay drift ${formatUsdc(BigInt(result.twin.drift.total))}.`,
-        );
+        // The storm stage announces "Storm finished: drift …" in its own polite region once the replay ends.
+        setNotice(null);
       })
       .catch((e: unknown) => {
         const message = e instanceof Error ? e.message : String(e);

@@ -5,6 +5,12 @@ export interface DriftMeterProps {
   /** Expected minus reported, in base units: positive is lost money, negative is conjured money. */
   drift: bigint;
   label: string;
+  /**
+   * Money lost and conjured across accounts. When both are given and the
+   * total nets to zero, the meter still reads as drifting.
+   */
+  lost?: bigint;
+  conjured?: bigint;
 }
 
 /**
@@ -12,13 +18,22 @@ export interface DriftMeterProps {
  * digits in the drift, so it never turns a bigint into a float. The value and
  * the verdict are always in text (Requirement 12.3).
  */
-export function DriftMeter({ drift, label }: DriftMeterProps) {
+export function DriftMeter({ drift, label, lost = 0n, conjured = 0n }: DriftMeterProps) {
+  const netting = drift === 0n && (lost > 0n || conjured > 0n);
+  const still = drift === 0n && !netting;
   const abs = drift < 0n ? -drift : drift;
-  const digits = drift === 0n ? 0 : abs.toString().length;
-  const angle = drift === 0n ? 0 : Math.min(80, 18 + digits * 6) * (drift < 0n ? -1 : 1);
-  const verdict = drift === 0n ? 'No drift: every cent is where it should be' : drift > 0n ? 'Drifting: money lost' : 'Drifting: money conjured';
+  const size = netting ? lost + conjured : abs;
+  const digits = still ? 0 : size.toString().length;
+  const angle = still ? 0 : Math.min(80, 18 + digits * 6) * (drift < 0n ? -1 : 1);
+  const verdict = still
+    ? 'No drift: every cent is where it should be'
+    : netting
+      ? 'Drifting: money lost and conjured, netting to zero'
+      : drift > 0n
+        ? 'Drifting: money lost'
+        : 'Drifting: money conjured';
   return (
-    <figure className={`meter ${drift === 0n ? 'meter--still' : 'meter--drifting'}`}>
+    <figure className={`meter ${still ? 'meter--still' : 'meter--drifting'}`}>
       <svg viewBox="0 0 200 110" className="meter__dial" aria-hidden="true" style={{ '--angle': `${angle}deg` } as CSSProperties}>
         <path d="M 20 100 A 80 80 0 0 1 180 100" className="meter__arc" />
         <path d="M 88 21 A 80 80 0 0 1 112 21" className="meter__zero" />
@@ -31,7 +46,7 @@ export function DriftMeter({ drift, label }: DriftMeterProps) {
           {formatUsdc(drift)}
         </strong>
         <span className="meter__verdict">
-          <span aria-hidden="true">{drift === 0n ? '✓ ' : '✗ '}</span>
+          <span aria-hidden="true">{still ? '✓ ' : '✗ '}</span>
           {verdict}
         </span>
       </figcaption>

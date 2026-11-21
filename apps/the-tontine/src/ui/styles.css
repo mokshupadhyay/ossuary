@@ -373,6 +373,16 @@ code {
 }
 .candle--lit .candle__flame {
   animation: flicker 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.37s);
+}
+/* The glow breathes with the flame, each seat out of step with its neighbours (design T8). */
+.candle--lit .candle__glow {
+  animation: glow 3.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.53s);
+}
+/* An unlit candle keeps a faint ember on its wick, so the seat does not read as empty. */
+.candle--unlit .candle__wick {
+  background: linear-gradient(180deg, #ff8a3c 0 25%, #2b2018 25%);
 }
 /* Guttering: a small, low, dim flame that sputters. */
 .candle--guttering .candle__flame {
@@ -407,6 +417,21 @@ code {
   }
   60% {
     transform: translateX(-50%) scale(1.04, 0.95) rotate(-2deg);
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: translate(-50%, 30%) scale(1);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, 30%) scale(1.08);
+  }
+  70% {
+    opacity: 0.7;
+    transform: translate(-50%, 30%) scale(0.95);
   }
 }
 @keyframes gutter {
@@ -704,6 +729,10 @@ fieldset.members {
   margin: 0;
   min-width: 0;
 }
+/* Keys are already in 0.875rem; the general 0.85em code size would put them under 12 px. */
+.keys code {
+  font-size: 1em;
+}
 .entries {
   display: flex;
   flex-wrap: wrap;
@@ -806,9 +835,198 @@ fieldset.members {
   text-align: left;
   font-weight: 400;
 }
-.faults__row--drifted td:last-child {
+.faults__row--drifted .faults__drifted,
+.faults .faults__money--bad {
   color: var(--ember);
   font-weight: 700;
+}
+.faults td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.faults__unit {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ash);
+}
+/*
+ * A wide table scrolls inside its own box on narrow screens, never the page.
+ * Scroll shadows: the edge darkens on the side where more columns are hidden.
+ */
+.faults__wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  background:
+    linear-gradient(90deg, rgb(10 6 12), rgb(10 6 12 / 0)) left / 1.5rem 100% no-repeat local,
+    linear-gradient(270deg, rgb(10 6 12), rgb(10 6 12 / 0)) right / 1.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(180 140 214 / 0.3), transparent) left / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(180 140 214 / 0.3), transparent) right / 0.75rem 100% no-repeat scroll;
+}
+.faults__wrap:focus-visible {
+  outline-offset: 0;
+}
+
+/* The storm stage: ghosts cross a lane per system while the storm runs and replays. */
+.stage {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #4a3456;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(180 140 214 / 0.12), transparent 70%),
+    rgb(10 6 12 / 0.55);
+}
+.stage__caption {
+  margin: 0 0 0.5rem;
+}
+.stage__lanes {
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+.stage__side {
+  min-width: 0;
+}
+.stage__name {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+.stage__status {
+  margin: 0.6rem 0 0;
+  font-weight: 700;
+}
+.stage__status:empty {
+  margin: 0;
+}
+.lane {
+  position: relative;
+  height: 5.5rem;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid #3a2a40;
+  background: linear-gradient(90deg, rgb(18 13 10 / 0.6), rgb(37 22 41 / 0.6));
+}
+.lane--ossuary {
+  border-color: #5f7a55;
+}
+.lane--twin {
+  border-color: #8a3a32;
+}
+.lane__end {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.6rem;
+}
+.lane__still {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+}
+.lane--still .lane__end {
+  display: none;
+}
+.sprite {
+  position: absolute;
+  left: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+.sprite--brewing {
+  animation: haunt 2s linear infinite;
+}
+.sprite--buried {
+  animation: bury 1.2s ease-in forwards;
+}
+.sprite--escaped {
+  filter: drop-shadow(0 0 4px var(--ember)) hue-rotate(-30deg);
+  animation: escape 1.2s ease-in forwards;
+}
+/* Percent offsets in translate refer to the sprite, so the lane width comes from a container query unit. */
+.lane {
+  container-type: inline-size;
+}
+@keyframes haunt {
+  0% {
+    transform: translate(-1.5rem, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(50cqw, -0.4rem);
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(100cqw, 0);
+    opacity: 0;
+  }
+}
+@keyframes bury {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    transform: translate(calc(100cqw - 3rem), 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(100cqw - 2.6rem), 0.6rem) scale(0.3);
+    opacity: 0;
+  }
+}
+@keyframes escape {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(100cqw, -2.5rem);
+    opacity: 0;
+  }
+}
+.gauge {
+  margin-top: 0.4rem;
+}
+.gauge__track {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: #3a2a40;
+  overflow: hidden;
+}
+.gauge__fill {
+  display: block;
+  height: 100%;
+  width: var(--fill, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c2412f, var(--ember));
+  transition: width 0.25s linear;
+}
+.gauge__text {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--ash);
+}
+.gauge--bad .gauge__text {
+  color: var(--ember);
+}
+.gauge--ossuary.gauge--ok .gauge__text {
+  color: var(--bone);
 }
 .ghosts {
   margin-top: 0.75rem;
@@ -833,6 +1051,9 @@ fieldset.members {
 }
 .ghost__fault {
   font-weight: 700;
+}
+.ghosts code {
+  font-size: 1em;
 }
 
 /* Drift meter */
@@ -988,6 +1209,17 @@ fieldset.members {
     flex-direction: column;
     align-items: flex-start;
   }
+  .faults th,
+  .faults td {
+    padding: 0.3rem 0.25rem;
+  }
+  /* Keep fault names on one or two lines; the money columns scroll into view. */
+  .faults {
+    min-width: 36rem;
+  }
+  .faults th[scope='row'] {
+    min-width: 9rem;
+  }
 }
 
 /* Reduced motion: the same states, without movement (Requirement 8.6). */
@@ -998,7 +1230,8 @@ fieldset.members {
     animation: none !important;
     transition: none !important;
   }
-  .coin-flight {
+  .coin-flight,
+  .sprite {
     display: none;
   }
 }
