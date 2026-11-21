@@ -127,6 +127,8 @@ The app is built through the Ossuary Kiro power: its `money-code-review` and `po
 2. THE panel SHALL show a drift meter for each side in USDC, conjured and lost amounts, per-fault blocked and drifted counts, and a feed of blocked ghosts with their epitaphs.
 3. FOR any seed, THE Ossuary side SHALL show drift 0.000000; THE Twin side SHALL show its drift and the counterexample's fault.
 4. WHILE a storm runs, THE panel SHALL disable its button and announce progress in a polite live region. Running a storm SHALL not touch the Jar's ledger.
+5. THE per-fault table SHALL never show zero money for a fault with drifted ghosts: it SHALL show the twin's lost and conjured amounts per fault, summed ghost by ghost and account by account, instead of the net drift. THE meters SHALL keep the report's per-account totals.
+6. WHILE a storm runs and for a short replay after it (about 2.4 s), THE panel SHALL animate ghosts across an Ossuary lane and a Vibe Pay lane; the Vibe Pay meter SHALL climb as its drifted ghosts are revealed, and Ossuary's SHALL stay at zero. WHEN the user prefers reduced motion, THE panel SHALL show a static lane and skip the replay. WHEN the final numbers are shown, a polite live region SHALL announce "Storm finished: drift X USDC on Ossuary, Y USDC on Vibe Pay".
 
 ### Requirement 8: Accessibility and presentation
 
@@ -137,7 +139,7 @@ The app is built through the Ossuary Kiro power: its `money-code-review` and `po
 1. EVERY control SHALL be reachable and operable by keyboard, with a visible focus indicator.
 2. Colour SHALL never be the only signal: states (applied, reversed, rejected, drift) SHALL also be shown in text or icons with text alternatives.
 3. WHEN the user prefers reduced motion, THE App SHALL not animate ghosts or the goal bar; ghosts SHALL appear and fade without movement.
-4. THE App SHALL be readable at 360 px width without horizontal scrolling.
+4. THE App SHALL be readable at 360 px width without horizontal scrolling, and checked at 390 px and 1280 px: no horizontal scroll, text contrast at least 4.5:1 (reversed and faded tips included), visible focus rings. A Playwright test covers 390 px.
 5. New tips and Coffin results SHALL be announced through polite live regions.
 
 ### Requirement 9: Correctness properties

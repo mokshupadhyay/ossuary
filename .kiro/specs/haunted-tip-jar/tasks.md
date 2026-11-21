@@ -122,3 +122,15 @@ Conventions for every task:
     - Killed: P3 `Math.trunc(Number(s)*1e6)`; P4 HMAC without key; P1 per-attempt reversal id, reversal id from paymentId; P2 refunds without `applied` filter, key reuse run instead of 409; import scan relative core import, `Math.round(parseFloat)` parser.
     - Survived, explained: P3 `Math.round(Number(s)*1e6)` (exact in range; caught by the scan instead); P1 per-attempt capture id (core rejects a second capture); P1 no `applied` filter (no rejected reversals in P1's domain; moved to P2).
   - **Scope:** this session changed only `apps/haunted-tip-jar/**`, `.kiro/specs/haunted-tip-jar/**` and, through `pnpm --filter haunted-tip-jar add`, `pnpm-lock.yaml`. The `apps/the-tontine` changes in `git status` are the other session's. Nothing was committed.
+
+- [x] 9. Polish (docs/session-polish-tipjar.md)
+  - [x] 9.1 Per-fault table never reads zero for drifted ghosts
+    - _Requirements: 7.5_
+    - `tests/components/faultTable.test.tsx` **failed** first against the old table: `Concurrent double-tap: 2 | 2/2 | 2/2 | 0.000000`. Fix: `moneyByFault` in `src/poltergeist.ts`, and Lost/Conjured columns. Seed 7 × 200, double-tap 8/8: lost 2487.332129, conjured 2487.332129 (was 0.000000). Meters unchanged (5871.276351; conjured 2781.470452, lost 8652.746803).
+  - [x] 9.2 Animated storm, reduced-motion fallback, "Storm finished" live region
+    - _Requirements: 7.6, 8.3_
+    - Component tests: lanes while it runs, the twin's drifted count rising monotonically during the replay while Ossuary's stays 0, the meter value climbing, the final status text; a reduced-motion test with a stubbed `matchMedia`.
+  - [x] 9.3 Atmosphere: candle glow, consistent ghosts and tombstones (epitaphs and the coffin's buried list)
+  - [x] 9.4 390 px and 1280 px: a Playwright probe of every page found no horizontal scroll and no missing focus ring, and 11 contrast failures on the jar page: faded ghosts at 2.35:1 and reversed tips at 3.35–3.76:1, both from `opacity`. Both now use muted text and dashed outlines: 0 failures. `e2e/mobile.spec.ts` covers 390 px (scroll, focus rings) and reduced motion.
+    - _Requirements: 8.1, 8.4_
+  - [x] 9.5 README and `e2e/demo.spec.ts` updated (storm animation, status text, double-tap row)

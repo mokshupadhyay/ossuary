@@ -102,6 +102,10 @@ PGlite on IndexedDB must not be opened by two tabs at once. The app takes a Web 
 
 Runs are done one after the other (PGlite is single-threaded per instance and the page stays responsive between awaits). Default size 200, capped at 2 000.
 
+**Per-fault money (Requirement 7.5).** A fault's `drift.total` is net: a double-tap moves money from the pot to a member, so seed 7 × 200 showed "8/8 drifted, 0.000000". Per-account sums of the fault can also cancel across ghosts. `moneyByFault(report)` in `src/poltergeist.ts` reads `report.drifted` (every drifted ghost has at least one non-zero account, by the report's own definition) and sums positive account drifts as lost and negative ones as conjured, ghost by ghost. The table shows those two columns. They are gross figures and can exceed the meter's net `lost`/`conjured`, which stay as the report gives them. Core is unchanged.
+
+**The storm animation (Requirement 7.6).** The engine runs to completion before anything is known, so the panel animates in two stages. While it runs, a few looping ghosts cross both lanes. Then `replayGhosts(duel)` orders the ghosts by unit id (zero-padded, so storm order) and the panel reveals them over `REPLAY_MS` (2.4 s, any storm size): on Ossuary each one sinks into a tombstone; on Vibe Pay a drifted one escapes with a red glow, the drifted count rises and the meter fills in proportion to the drifted ghosts revealed. Lanes are `aria-hidden`; the counters and the final meters carry the meaning. Reduced motion shows a static "👻 → 🪦 / 💸" lane and skips the replay. The panel's own `role="status"` line (`storm-status`) holds phase text, "Replaying the storm…", then "Storm finished: drift …".
+
 ### D10. Money in the UI
 
 `src/money.ts` is the only place text becomes money: `parseUsdc(text)` uses a regex (`^\d{1,7}(\.\d{1,6})?$`), splits on the point, pads the fraction to 6 digits, and builds a `bigint`. `formatUsdc(units)` prints all 6 decimals (`12.500000`); `formatUsdcShort` trims trailing zeros for the feed (`12.5`). No `Number`, `parseFloat`, `toFixed` or `Math` touches an amount. Goal-bar width is the only ratio: it is computed in `bigint` per-mille (`held * 1000n / goal`), clamped, and only then turned into a CSS percentage.
@@ -172,7 +176,7 @@ Three app tables, created with `CREATE TABLE IF NOT EXISTS` after core's migrati
 - **Coffin** (`#/coffin`): the equation as a table (In, Out: refunds, Out: chargebacks, Held, Residual), the extra checks with pass/fail text, the defense counts, and the verdict in a live region.
 - **Poltergeist** (`#/poltergeist`): seed and size inputs, "Summon the Poltergeist", two drift meters (Ossuary, Vibe Pay) with a text value and a meter element, per-fault table, blocked-ghost feed (epitaphs), and the twin's counterexample.
 
-Visuals: dark candlelit palette, ghost cards with a soft glow. Focus ring: 3 px solid outline with offset on every interactive element. `@media (prefers-reduced-motion: reduce)` turns off float and pulse animations (fade becomes an instant change). Layout is a single column below 720 px.
+Visuals: dark candlelit palette, ghost cards with a soft glow. One ghost treatment (`--ghost-shape`, `--ghost-glow`) on tip cards, the preview, the overlay and the storm lanes; one tombstone treatment (`.tombstone`) for buried ghosts on the poltergeist page and in the coffin; an amber glow at the foot of the page and on cards (`--candle-glow`), and a slow flicker on the goal bar. Reversed tips and faded ghosts use muted text and a dashed outline instead of opacity, so their text keeps at least 4.5:1. Focus ring: 3 px solid outline with offset on every interactive element. `@media (prefers-reduced-motion: reduce)` turns off float and pulse animations (fade becomes an instant change). Layout is a single column below 720 px.
 
 ## Correctness Properties
 
