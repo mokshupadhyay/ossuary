@@ -222,8 +222,8 @@ Conventions for every task:
 - [x] 8. Checkpoint - Ensure all tests pass
   - Run `vitest --run` and `tsc --noEmit`. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Shared test helpers
-  - [ ] 9.1 Create `tests/helpers/crash.ts`, `clock.ts`, `sender.ts` and `webhooks.ts`
+- [x] 9. Shared test helpers
+  - [x] 9.1 Create `tests/helpers/crash.ts`, `clock.ts`, `sender.ts` and `webhooks.ts`
     - **`crash.ts`**: extract the crash injection from `tests/property/atomicity.property.ts`, with these parts:
       - a second Drizzle instance on the same PGlite client, whose logger throws once before statement N;
       - wrappers for "before commit" and "after commit";
@@ -244,8 +244,8 @@ Conventions for every task:
       - every value in `WEBHOOK_RUNS` is at least 25.
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 10. Property-based tests (required)
-  - [ ] 10.1 Write the property test for Property 1 in `tests/property/staleTimestamp.property.ts`
+- [x] 10. Property-based tests (required)
+  - [x] 10.1 Write the property test for Property 1 in `tests/property/staleTimestamp.property.ts`
     - **Property 1: A replayed old timestamp is always rejected**
     - **Generate**:
       - any body (valid events and arbitrary strings);
@@ -261,7 +261,7 @@ Conventions for every task:
     - Tag: `// Feature: webhooks-outbox, Property 1`
     - **Validates: Requirements 2.2, 2.6, 1.1, 12.5**
 
-  - [ ] 10.2 Write the property test for Property 2 in `tests/property/webhookOrder.property.ts`
+  - [x] 10.2 Write the property test for Property 2 in `tests/property/webhookOrder.property.ts`
     - **Property 2: Delivery order and duplicates don't change the outcome**
     - **Generate** a `validRailHistoryArb` and a `deliveryOrderArb`
     - **Run the cases**: deliver the shuffled sequence through the handler on one set of accounts and payment ids. Deliver the reference (each distinct event once, in natural order) on a second set, mapped one-to-one, in the same database
@@ -280,7 +280,7 @@ Conventions for every task:
     - Tag: `// Feature: webhooks-outbox, Property 2`
     - **Validates: Requirements 5.10, 4.3, 5.6, 5.7, 5.9, 8.1, 12.5**
 
-  - [ ] 10.3 Write the property test for Property 3 in `tests/property/outboxDurability.property.ts`
+  - [x] 10.3 Write the property test for Property 3 in `tests/property/outboxDurability.property.ts`
     - **Property 3: The outbox never loses an event across crashes**
     - **Generate**:
       - a valid rail history of 1–2 payments;
@@ -308,7 +308,7 @@ Conventions for every task:
     - Tag: `// Feature: webhooks-outbox, Property 3`
     - **Validates: Requirements 9.9, 6.1, 6.3, 6.6, 8.1, 8.6, 9.6, 9.7, 12.5**
 
-- [ ] 11. Final checkpoint - Ensure all tests pass
+- [x] 11. Final checkpoint - Ensure all tests pass
   - Run the full `vitest --run` three times, recording each wall time, and run `tsc --noEmit`
   - Every run must pass and finish in under 120 seconds. If a run comes close (over about 90 s), reduce per-case size rather than dropping any property below 25 runs, and ask the user if questions arise
 
